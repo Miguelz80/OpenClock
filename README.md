@@ -20,10 +20,25 @@ openclock summary --data-dir samples --timezone America/Sao_Paulo --week-of 2026
 ```text
 Week 2026-11-16 to 2026-11-22 (America/Sao_Paulo) · sport: running
 
-  source        runs     distance     duration
-  garmin           1      8.42 km      0:45:10
-  apple_health     1      5.02 km      0:28:45
-  combined         2     13.44 km      1:13:55
+  source        runs     distance     duration    avg pace
+  garmin           1      8.42 km      0:45:10    5:22 /km
+  apple_health     1      5.02 km      0:28:45    5:44 /km
+  combined         2     13.44 km      1:13:55    5:30 /km
+```
+
+And "how did my running change since last week?":
+
+```bash
+openclock compare --data-dir samples --timezone America/Sao_Paulo --week-of 2026-11-18
+```
+
+```text
+  source        metric       previous      current  change
+  ...
+  combined      workouts            2            2  +0
+                distance     10.60 km     13.44 km  +2.84 km (+26.8%)
+                duration      0:59:45      1:13:55  +0:14:10
+                avg pace     5:38 /km     5:30 /km  8 s/km faster
 ```
 
 Every number can be traced to a field in [`samples/`](samples/). The [demo guide](docs/demo.md) shows how to check each one by hand. To use OpenClock from an AI assistant, run `openclock-mcp --data-dir <folder> --timezone <zone>` and add it to your MCP client ([docs/mcp.md](docs/mcp.md)).
@@ -51,7 +66,7 @@ flowchart LR
 
 - **Importers** read files exported by each platform and convert them into one common record, keeping the original source.
 - **Metrics core** computes totals, period boundaries (in the user's time zone) and possible duplicates in plain code, with no AI involved.
-- **MCP server** exposes two read-only tools, `list_workouts` and `summarize_period`, so any MCP-capable assistant can ask for the numbers ([docs/mcp.md](docs/mcp.md)).
+- **MCP server** exposes read-only tools (`list_workouts`, `summarize_period`, `compare_periods`), so any MCP-capable assistant can ask for the numbers ([docs/mcp.md](docs/mcp.md)).
 - **Channels** are optional layers on top. Mode A costs the project nothing to run because the user brings their own AI app. Mode B adds messaging and AI costs that the operator pays.
 
 See [docs/architecture.md](docs/architecture.md) for the full system design and [docs/adr/](docs/adr/) for the decisions behind it.
@@ -61,7 +76,7 @@ See [docs/architecture.md](docs/architecture.md) for the full system design and 
 | Milestone | Scope | Status |
 |---|---|---|
 | 1. Local MCP demo | Synthetic FIT and Apple Health samples, normalization, weekly totals per source, duplicate flagging, tests | Done (local, synthetic data) |
-| 2. Comparisons and goals | Period-over-period comparison, pace, user goals | Planned |
+| 2. Comparisons and goals | Average pace, week/month comparison with the previous equivalent period, user goals | In progress: comparisons done, goals next |
 | 3. Messaging pilot | Weekly summary and follow-up questions in Telegram | Planned |
 | 4. Automatic sync | Garmin API (if access is granted), iOS app or Shortcut for Apple Health, official WhatsApp Business Platform | Under evaluation |
 

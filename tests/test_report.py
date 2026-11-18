@@ -5,7 +5,13 @@ from helpers import make_workout
 from openclock.metrics import summarize
 from openclock.models import Source
 from openclock.periods import week_containing
-from openclock.report import format_duration, summary_to_dict, workout_to_dict
+from openclock.report import (
+    format_duration,
+    format_pace,
+    format_signed_duration,
+    summary_to_dict,
+    workout_to_dict,
+)
 
 
 def test_format_duration():
@@ -34,3 +40,14 @@ def test_summary_dict_units():
     assert d["by_source"]["apple_health"]["workout_count"] == 0
     assert d["sources_without_data"] == ["apple_health"]
     assert d["combined"]["distance_km"] == 8.42
+
+
+def test_format_pace():
+    assert format_pace(329.99) == "5:30 /km"
+    assert format_pace(321.85) == "5:22 /km"
+    assert format_pace(None) == "unavailable"
+
+
+def test_format_signed_duration():
+    assert format_signed_duration(850) == "+0:14:10"
+    assert format_signed_duration(-905) == "-0:15:05"

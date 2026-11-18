@@ -18,7 +18,7 @@ class Period:
     start: datetime
     end: datetime
     timezone: str
-    kind: str  # "week" or "custom"
+    kind: str  # "week", "month" or "custom"
 
     def contains(self, moment: datetime) -> bool:
         # Compare in UTC: Python compares datetimes that share a tzinfo by wall-clock time,
@@ -29,6 +29,11 @@ class Period:
     @property
     def duration(self) -> timedelta:
         return self.end.astimezone(UTC) - self.start.astimezone(UTC)
+
+    @property
+    def days(self) -> int:
+        """Number of calendar days in the period."""
+        return (self.last_day - self.first_day).days + 1
 
     @property
     def first_day(self) -> date:
@@ -83,3 +88,31 @@ def date_range(first_day: date, last_day: date, tz_name: str) -> Period:
         timezone=tz_name,
         kind="custom",
     )
+
+
+def month_containing(day: date, tz_name: str) -> Period:
+    """The calendar month that contains ``day``, in ``tz_name``."""
+    tz = resolve_timezone(tz_name)
+    first = day.replace(day=1)
+    following = (first + timedelta(days=32)).replace(day=1)
+    return Period(
+        start=_local_midnight(first, tz),
+        end=_local_midnight(following, tz),
+        timezone=tz_name,
+        kind="month",
+    )
+
+
+def previous_equivalent(period: Period) -> Period:
+    """The period of the same kind right before ``period``.
+
+    - week   -> the previous ISO week
+    - month  -> the previous calendar month (lengths may differ; see ``Period.days``)
+    - custom -> the same number of days immediately before
+    """
+    if period.kind == "week":
+        return week_containing(period.first_day - timedelta(days=7), period.timezone)
+    if period.kind == "month":
+        return month_containing(period.first_day - timedelta(days=1), period.timezone)
+    last = period.first_day - timedelta(days=1)
+    return date_range(last - timedelta(days=period.days - 1), last, period.timezone)

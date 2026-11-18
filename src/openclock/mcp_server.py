@@ -33,7 +33,10 @@ possibly outdated data).
 - If possible_duplicates is not empty, show the per-source totals, explain the overlap and ask \
 the user how to combine before giving a combined total.
 - Ask for the user's IANA time zone if a note says UTC was assumed.
-- When comparing, use periods of the same kind and length.
+- For "how did I change" questions use compare_periods, which always compares equivalent \
+periods (week with the previous week, month with the previous month). Quote the changes it \
+returns; a lower pace in seconds per km is faster. If the current period has not ended yet, \
+say that it is still in progress.
 - Do not give medical advice; refer questions about pain, injury or diagnosis to a professional.
 """
 
@@ -52,8 +55,19 @@ EndDate = Annotated[
 ReferenceDate = Annotated[
     str | None,
     Field(
-        description="Without start/end dates: the ISO week (Mon-Sun) containing this day. "
+        description="Without start/end dates: the week or month containing this day. "
         "Defaults to today in the time zone."
+    ),
+]
+PeriodKind = Annotated[
+    Literal["week", "month"],
+    Field(description="Without start/end dates: ISO week (Mon-Sun) or calendar month."),
+]
+DuplicatePolicyName = Annotated[
+    Literal["flag", "count_all", "prefer_garmin", "prefer_apple_health"],
+    Field(
+        description="How to combine sources when possible duplicates exist. 'flag' "
+        "withholds the combined total; pick another only after asking the user."
     ),
 ]
 SportName = Literal["running", "walking", "cycling", "swimming", "other", "all"]
@@ -82,12 +96,20 @@ def create_server(data_dir: str | Path) -> MCPServer:
             Literal["garmin", "apple_health"] | None, Field(description="Only this source.")
         ] = None,
         sport: Annotated[SportName, Field(description="Only this sport.")] = "all",
+        period: PeriodKind = "week",
     ) -> dict[str, Any]:
         """List workouts in a period (default: this week), with source file, local start time,
-        duration, distance and which metrics are unavailable."""
+        duration, distance, pace and which metrics are unavailable."""
         with _user_errors():
             return service.list_workouts(
-                library, timezone, start_date, end_date, reference_date, source, sport
+                library,
+                timezone=timezone,
+                start_date=start_date,
+                end_date=end_date,
+                reference_date=reference_date,
+                source=source,
+                sport=sport,
+                period_kind=period,
             )
 
     @server.tool(annotations=_READ_ONLY)
@@ -97,19 +119,47 @@ def create_server(data_dir: str | Path) -> MCPServer:
         end_date: EndDate = None,
         reference_date: ReferenceDate = None,
         sport: Annotated[SportName, Field(description="Sport to total.")] = "running",
-        duplicate_policy: Annotated[
-            Literal["flag", "count_all", "prefer_garmin", "prefer_apple_health"],
-            Field(
-                description="How to combine sources when possible duplicates exist. 'flag' "
-                "withholds the combined total; pick another only after asking the user."
-            ),
-        ] = "flag",
+        duplicate_policy: DuplicatePolicyName = "flag",
+        period: PeriodKind = "week",
     ) -> dict[str, Any]:
-        """Distance, duration and workout count per source for a period (default: this week),
-        possible duplicates across devices, and a combined total when it is safe."""
+        """Distance, duration, average pace and workout count per source for a period
+        (default: this week), possible duplicates across devices, and a combined total when it
+        is safe."""
         with _user_errors():
             return service.summarize_period(
-                library, timezone, start_date, end_date, reference_date, sport, duplicate_policy
+                library,
+                timezone=timezone,
+                start_date=start_date,
+                end_date=end_date,
+                reference_date=reference_date,
+                sport=sport,
+                duplicate_policy=duplicate_policy,
+                period_kind=period,
+            )
+
+    @server.tool(annotations=_READ_ONLY)
+    def compare_periods(
+        timezone: TimeZone = None,
+        start_date: StartDate = None,
+        end_date: EndDate = None,
+        reference_date: ReferenceDate = None,
+        sport: Annotated[SportName, Field(description="Sport to compare.")] = "running",
+        duplicate_policy: DuplicatePolicyName = "flag",
+        period: PeriodKind = "week",
+    ) -> dict[str, Any]:
+        """Compare a period (default: this week) with the equivalent period right before it:
+        changes in workout count, distance, duration and average pace, per source and combined.
+        A custom start/end range is compared with the same number of days before it."""
+        with _user_errors():
+            return service.compare_periods(
+                library,
+                timezone=timezone,
+                start_date=start_date,
+                end_date=end_date,
+                reference_date=reference_date,
+                sport=sport,
+                duplicate_policy=duplicate_policy,
+                period_kind=period,
             )
 
     return server

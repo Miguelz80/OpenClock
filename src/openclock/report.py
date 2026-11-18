@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openclock.metrics import DuplicateCandidate, PeriodSummary, Totals
+from openclock.metrics import Delta, DuplicateCandidate, PeriodComparison, PeriodSummary, Totals
 from openclock.models import Workout
 from openclock.periods import Period, resolve_timezone
 
@@ -22,6 +22,28 @@ def format_duration(seconds: float | None) -> str:
     hours, rest = divmod(total, 3600)
     minutes, secs = divmod(rest, 60)
     return f"{hours}:{minutes:02d}:{secs:02d}"
+
+
+def format_pace(seconds_per_km: float | None) -> str:
+    """``329.99`` -> ``"5:30 /km"``; ``None`` -> ``"unavailable"``."""
+    if seconds_per_km is None:
+        return UNAVAILABLE
+    minutes, secs = divmod(round(seconds_per_km), 60)
+    return f"{minutes}:{secs:02d} /km"
+
+
+def format_signed_duration(seconds: float | None) -> str:
+    """``-905`` -> ``"-0:15:05"``; ``None`` -> ``"unavailable"``."""
+    if seconds is None:
+        return UNAVAILABLE
+    sign = "-" if seconds < 0 else "+"
+    return sign + format_duration(abs(seconds))
+
+
+def _pace(workout: Workout) -> float | None:
+    if workout.distance_m and workout.duration_s is not None:
+        return workout.duration_s / (workout.distance_m / 1000)
+    return None
 
 
 def _km(meters: float | None) -> float | str:
@@ -65,6 +87,7 @@ def workout_to_dict(workout: Workout, tz_name: str) -> dict[str, Any]:
         "duration": format_duration(workout.duration_s),
         "distance_m": _m(workout.distance_m),
         "distance_km": _km(workout.distance_m),
+        "pace": format_pace(_pace(workout)),
         "unavailable_metrics": unavailable,
         "source_file": workout.source_file,
     }
@@ -79,6 +102,10 @@ def totals_to_dict(totals: Totals) -> dict[str, Any]:
         "duration_s": _s(totals.duration_s),
         "workouts_missing_distance": totals.missing_distance,
         "workouts_missing_duration": totals.missing_duration,
+        "avg_pace": format_pace(totals.pace_s_per_km),
+        "avg_pace_s_per_km": _s(totals.pace_s_per_km),
+        "avg_pace_based_on_workouts": totals.pace_workout_count,
+        "longest_km": _km(totals.longest_distance_m),
     }
 
 
@@ -109,4 +136,64 @@ def summary_to_dict(summary: PeriodSummary) -> dict[str, Any]:
             for w in summary.excluded_from_combined
         ],
         "workouts": [workout_to_dict(w, tz_name) for w in summary.workouts],
+    }
+
+
+def _rounded(value: float | None, digits: int) -> float | str:
+    return UNAVAILABLE if value is None else round(value, digits)
+
+
+def _deltas_to_dict(deltas: dict[str, Delta]) -> dict[str, Any]:
+    count, dist, dur, pace = (
+        deltas["workout_count"],
+        deltas["distance_m"],
+        deltas["duration_s"],
+        deltas["pace_s_per_km"],
+    )
+    pace_change = pace.change
+    if pace_change is None:
+        direction = UNAVAILABLE
+    elif round(pace_change) == 0:
+        direction = "same"
+    else:
+        direction = "faster" if pace_change < 0 else "slower"
+    return {
+        "workout_count": {
+            "current": int(count.current or 0),
+            "previous": int(count.previous or 0),
+            "change": int(count.change or 0),
+        },
+        "distance_km": {
+            "current": _km(dist.current),
+            "previous": _km(dist.previous),
+            "change": _km(dist.change),
+            "change_pct": _rounded(dist.change_pct, 1),
+        },
+        "duration": {
+            "current": format_duration(dur.current),
+            "previous": format_duration(dur.previous),
+            "change": format_signed_duration(dur.change),
+            "change_s": _s(dur.change),
+            "change_pct": _rounded(dur.change_pct, 1),
+        },
+        "avg_pace": {
+            "current": format_pace(pace.current),
+            "previous": format_pace(pace.previous),
+            "change_s_per_km": _s(pace_change),
+            "direction": direction,
+        },
+    }
+
+
+def comparison_to_dict(comparison: PeriodComparison) -> dict[str, Any]:
+    return {
+        "current": summary_to_dict(comparison.current),
+        "previous": summary_to_dict(comparison.previous),
+        "changes": {
+            "by_source": {
+                source.value: _deltas_to_dict(d) for source, d in comparison.by_source.items()
+            },
+            "combined": _deltas_to_dict(comparison.combined) if comparison.combined else None,
+            "combined_withheld_reason": comparison.combined_withheld_reason,
+        },
     }

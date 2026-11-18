@@ -44,6 +44,13 @@ class Totals:
     duration_s: float | None  # None when no workout in a non-empty group has a duration
     missing_distance: int
     missing_duration: int
+    #: Average pace in seconds per km, over workouts that have BOTH distance (> 0) and
+    #: duration. Total time / total distance, so longer workouts weigh more.
+    pace_s_per_km: float | None = None
+    #: How many workouts the pace is based on.
+    pace_workout_count: int = 0
+    #: Longest single workout distance, among workouts with a distance.
+    longest_distance_m: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,12 +99,17 @@ def totals(workouts: Sequence[Workout]) -> Totals:
     distances = [w.distance_m for w in workouts if w.distance_m is not None]
     durations = [w.duration_s for w in workouts if w.duration_s is not None]
     empty = not workouts
+    paced = [w for w in workouts if w.distance_m and w.duration_s is not None]
+    paced_km = sum(w.distance_m for w in paced) / 1000
     return Totals(
         workout_count=len(workouts),
         distance_m=sum(distances) if (distances or empty) else None,
         duration_s=sum(durations) if (durations or empty) else None,
         missing_distance=len(workouts) - len(distances),
         missing_duration=len(workouts) - len(durations),
+        pace_s_per_km=sum(w.duration_s for w in paced) / paced_km if paced else None,
+        pace_workout_count=len(paced),
+        longest_distance_m=max(distances) if distances else None,
     )
 
 
@@ -178,3 +190,75 @@ def summarize(
         combined_withheld_reason=withheld,
         excluded_from_combined=excluded,
     )
+
+
+# --- comparisons ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Delta:
+    """``current - previous``. Undefined (``None``) when either side is unavailable."""
+
+    current: float | None
+    previous: float | None
+
+    @property
+    def change(self) -> float | None:
+        if self.current is None or self.previous is None:
+            return None
+        return self.current - self.previous
+
+    @property
+    def change_pct(self) -> float | None:
+        """Relative change in percent; ``None`` when the previous value is 0 or unavailable."""
+        change = self.change
+        if change is None or not self.previous:
+            return None
+        return change / self.previous * 100
+
+
+#: Metrics compared between periods, as attribute names of ``Totals``.
+COMPARED_METRICS = ("workout_count", "distance_m", "duration_s", "pace_s_per_km")
+
+
+def _deltas(current: Totals, previous: Totals) -> dict[str, Delta]:
+    return {
+        name: Delta(
+            None if getattr(current, name) is None else float(getattr(current, name)),
+            None if getattr(previous, name) is None else float(getattr(previous, name)),
+        )
+        for name in COMPARED_METRICS
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class PeriodComparison:
+    current: PeriodSummary
+    previous: PeriodSummary
+    by_source: dict[Source, dict[str, Delta]]
+    combined: dict[str, Delta] | None
+    combined_withheld_reason: str | None
+
+
+def compare(current: PeriodSummary, previous: PeriodSummary) -> PeriodComparison:
+    """Per-source and combined deltas between two summaries of equivalent periods."""
+    if current.period.kind != previous.period.kind:
+        raise ValueError("Compare periods of the same kind (week with week, month with month).")
+    if current.period.kind != "month" and current.period.days != previous.period.days:
+        raise ValueError("Compare periods with the same number of days.")
+    by_source = {
+        source: _deltas(current.by_source[source], previous.by_source[source]) for source in Source
+    }
+    combined: dict[str, Delta] | None = None
+    withheld: str | None = None
+    if current.combined is not None and previous.combined is not None:
+        combined = _deltas(current.combined, previous.combined)
+    else:
+        which = [
+            name for name, s in (("current", current), ("previous", previous)) if s.combined is None
+        ]
+        withheld = (
+            f"Combined comparison withheld: possible duplicates in the {' and '.join(which)} "
+            "period. Per-source changes are still valid."
+        )
+    return PeriodComparison(current, previous, by_source, combined, withheld)

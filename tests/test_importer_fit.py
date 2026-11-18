@@ -15,9 +15,11 @@ SAMPLES = Path(__file__).parent.parent / "samples"
 START = datetime(2026, 11, 17, 9, 30, tzinfo=UTC)
 
 
-def test_demo_sample_is_reproducible_from_generator(tmp_path):
-    (generated,) = [p for p in write_samples(tmp_path) if p.suffix == ".fit"]
-    assert generated.read_bytes() == (SAMPLES / GARMIN_DEMO_FILE).read_bytes()
+def test_demo_samples_are_reproducible_from_generator(tmp_path):
+    generated = [p for p in write_samples(tmp_path) if p.suffix == ".fit"]
+    assert len(generated) == 2
+    for path in generated:
+        assert path.read_bytes() == (SAMPLES / path.name).read_bytes(), path.name
 
 
 def test_demo_sample_values():

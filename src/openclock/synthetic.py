@@ -186,6 +186,14 @@ GARMIN_DEMO_SESSION = FitSession(
     elapsed_s=2750.0,
     distance_m=8420.0,
 )
+GARMIN_PREVIOUS_WEEK_FILE = "garmin_run_2026-11-10.fit"
+#: Tuesday 2026-11-10 06:30 in São Paulo (previous week): 7.50 km in 41:15, i.e. 5:30 /km.
+GARMIN_PREVIOUS_WEEK_SESSION = FitSession(
+    start=datetime.fromisoformat("2026-11-10T06:30:00-03:00"),
+    timer_s=2475.0,
+    elapsed_s=2475.0,
+    distance_m=7500.0,
+)
 
 APPLE_DEMO_FILE = "apple_health_export_sample.xml"
 APPLE_DEMO_WORKOUTS = [
@@ -221,9 +229,11 @@ def write_samples(directory: str | Path) -> list[Path]:
     directory.mkdir(parents=True, exist_ok=True)
     garmin = directory / GARMIN_DEMO_FILE
     garmin.write_bytes(fit_bytes([GARMIN_DEMO_SESSION]))
+    garmin_previous = directory / GARMIN_PREVIOUS_WEEK_FILE
+    garmin_previous.write_bytes(fit_bytes([GARMIN_PREVIOUS_WEEK_SESSION]))
     apple = directory / APPLE_DEMO_FILE
     apple.write_text(apple_health_xml(APPLE_DEMO_WORKOUTS, APPLE_DEMO_EXPORTED), encoding="utf-8")
-    return [garmin, apple]
+    return [garmin, garmin_previous, apple]
 
 
 if __name__ == "__main__":  # pragma: no cover
