@@ -4,7 +4,29 @@
 
 OpenClock brings workout data from Garmin Connect and Apple Watch (Apple Health) into AI assistants through the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). An assistant such as Claude or ChatGPT can query your workouts, produce reports and explain your progress in plain language, using numbers calculated by OpenClock rather than guessed by the model.
 
-> **Status:** early prototype, in planning. The first milestone is a local MCP demo that runs on synthetic sample files. Automatic sync with Garmin or Apple and a messaging channel (Telegram or WhatsApp) are still being evaluated. Nothing in this README is presented as ready until it has been implemented and tested in this repository.
+> **Status:** early prototype. Milestone 1 works locally on synthetic sample files: import a Garmin `.fit` and an Apple Health `export.xml`, and get weekly totals per source through the MCP server or the CLI (tested over stdio with the official MCP SDK client; not yet tried in a desktop AI app). Automatic sync with Garmin or Apple and a messaging channel (Telegram or WhatsApp) are still being evaluated.
+
+## Quickstart
+
+Requires Python 3.11+.
+
+```bash
+git clone https://github.com/Miguelz80/OpenClock.git && cd OpenClock
+python -m venv .venv && source .venv/bin/activate
+python -m pip install -e ".[dev]"
+openclock summary --data-dir samples --timezone America/Sao_Paulo --week-of 2026-11-18
+```
+
+```text
+Week 2026-11-16 to 2026-11-22 (America/Sao_Paulo) · sport: running
+
+  source        runs     distance     duration
+  garmin           1      8.42 km      0:45:10
+  apple_health     1      5.02 km      0:28:45
+  combined         2     13.44 km      1:13:55
+```
+
+Every number can be traced to a field in [`samples/`](samples/). The [demo guide](docs/demo.md) shows how to check each one by hand. To use OpenClock from an AI assistant, run `openclock-mcp --data-dir <folder> --timezone <zone>` and add it to your MCP client ([docs/mcp.md](docs/mcp.md)).
 
 ## Questions OpenClock aims to answer
 
@@ -29,7 +51,7 @@ flowchart LR
 
 - **Importers** read files exported by each platform and convert them into one common record, keeping the original source.
 - **Metrics core** computes totals, period boundaries (in the user's time zone) and possible duplicates in plain code, with no AI involved.
-- **MCP server** exposes read-only tools so any MCP-capable assistant can ask for the numbers.
+- **MCP server** exposes two read-only tools, `list_workouts` and `summarize_period`, so any MCP-capable assistant can ask for the numbers ([docs/mcp.md](docs/mcp.md)).
 - **Channels** are optional layers on top. Mode A costs the project nothing to run because the user brings their own AI app. Mode B adds messaging and AI costs that the operator pays.
 
 See [docs/architecture.md](docs/architecture.md) for the full system design and [docs/adr/](docs/adr/) for the decisions behind it.
@@ -38,8 +60,8 @@ See [docs/architecture.md](docs/architecture.md) for the full system design and 
 
 | Milestone | Scope | Status |
 |---|---|---|
-| 1. Local MCP demo | Synthetic FIT and Apple Health samples, normalization, weekly totals per source, duplicate flagging, tests | In progress |
-| 2. Comparisons and goals | Period-over-period comparison, pace, user goals, CI | Planned |
+| 1. Local MCP demo | Synthetic FIT and Apple Health samples, normalization, weekly totals per source, duplicate flagging, tests | Done (local, synthetic data) |
+| 2. Comparisons and goals | Period-over-period comparison, pace, user goals | Planned |
 | 3. Messaging pilot | Weekly summary and follow-up questions in Telegram | Planned |
 | 4. Automatic sync | Garmin API (if access is granted), iOS app or Shortcut for Apple Health, official WhatsApp Business Platform | Under evaluation |
 
@@ -47,8 +69,8 @@ See [docs/architecture.md](docs/architecture.md) for the full system design and 
 
 | Source | How OpenClock reads it today | Notes |
 |---|---|---|
-| Garmin | `.fit` activity files exported from Garmin Connect | Official API access requires approval and may be paused for new applicants; to be verified. |
-| Apple Watch | `export.xml` from the Health app ("Export All Health Data") | Apple Health has no cloud API; data stays on the iPhone. |
+| Garmin | `.fit` activity files exported from Garmin Connect (decoded with Garmin's official FIT SDK) | Official API access requires approval and may be paused for new applicants; to be verified. |
+| Apple Watch | `export.xml` or `export.zip` from the Health app ("Export All Health Data") | Apple Health has no cloud API; data stays on the iPhone. |
 | Strava | Not used | Strava's API agreement prohibits using API data in AI models. See [ADR 0004](docs/adr/0004-data-sources.md). |
 
 ## Privacy
@@ -57,7 +79,7 @@ Use synthetic data in examples, tests and issues. Keep credentials, GPS routes a
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for the branch and pull request workflow. Open an [issue](https://github.com/Miguelz80/OpenClock/issues) to suggest a use case, discuss an import format or report a problem, ideally with a synthetic, reproducible example and the expected result.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for the branch and pull request workflow and [docs/testing.md](docs/testing.md) for running the checks. Open an [issue](https://github.com/Miguelz80/OpenClock/issues) to suggest a use case, discuss an import format or report a problem, ideally with a synthetic, reproducible example and the expected result.
 
 ## License
 

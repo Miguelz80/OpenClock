@@ -1,0 +1,133 @@
+"""The milestone question, answered from the committed samples."""
+
+import shutil
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+
+from openclock import service
+from openclock.library import Library
+from openclock.synthetic import AppleWorkout, apple_health_xml
+
+SAMPLES = Path(__file__).parent.parent / "samples"
+TZ = "America/Sao_Paulo"
+
+
+@pytest.fixture
+def library():
+    return Library(SAMPLES)
+
+
+def test_how_far_did_i_run_this_week_on_each_source(library):
+    r = service.summarize_period(library, timezone=TZ, reference_date="2026-11-18")
+    assert r["period"]["first_day"] == "2026-11-16"
+    assert r["period"]["last_day"] == "2026-11-22"
+    assert r["period"]["timezone"] == TZ
+    garmin, apple = r["by_source"]["garmin"], r["by_source"]["apple_health"]
+    assert (garmin["workout_count"], garmin["distance_km"], garmin["duration"]) == (
+        1,
+        8.42,
+        "0:45:10",
+    )
+    assert (apple["workout_count"], apple["distance_km"], apple["duration"]) == (1, 5.02, "0:28:45")
+    assert r["possible_duplicates"] == []
+    assert r["combined"]["distance_km"] == 13.44
+    assert r["combined"]["duration"] == "1:13:55"
+    assert [w["source_file"] for w in r["workouts"]] == [
+        "garmin_run_2026-11-17.fit",
+        "apple_health_export_sample.xml",
+    ]
+    assert r["notes"] == []
+
+
+def test_utc_moves_the_sunday_night_run_into_the_week(library):
+    r = service.summarize_period(library, timezone="UTC", reference_date="2026-11-18")
+    assert r["by_source"]["apple_health"]["workout_count"] == 2
+    assert r["by_source"]["apple_health"]["distance_km"] == 8.12
+
+
+def test_default_timezone_is_flagged(library, monkeypatch):
+    monkeypatch.delenv(service.TIMEZONE_ENV, raising=False)
+    r = service.summarize_period(library, reference_date="2026-11-18")
+    assert r["period"]["timezone"] == "UTC"
+    assert "using UTC" in r["notes"][0]
+
+
+def test_timezone_from_environment(library, monkeypatch):
+    monkeypatch.setenv(service.TIMEZONE_ENV, TZ)
+    r = service.summarize_period(library, reference_date="2026-11-18")
+    assert r["period"]["timezone"] == TZ
+
+
+def test_custom_range_and_walking(library):
+    r = service.summarize_period(
+        library, timezone=TZ, start_date="2026-11-21", end_date="2026-11-21", sport="walking"
+    )
+    assert r["period"]["kind"] == "custom"
+    assert r["by_source"]["apple_health"]["distance_km"] == 3.2
+
+
+def test_list_workouts_filters(library):
+    r = service.list_workouts(library, timezone=TZ, reference_date="2026-11-18")
+    assert r["workout_count"] == 3  # Garmin run, Apple run, Apple walk
+    only_garmin = service.list_workouts(
+        library, timezone=TZ, reference_date="2026-11-18", source="garmin"
+    )
+    assert [w["source"] for w in only_garmin["workouts"]] == ["garmin"]
+    assert only_garmin["workouts"][0]["start_local"] == "2026-11-17T06:30:00-03:00"
+
+
+def test_stale_and_missing_sources_are_noted(library):
+    r = service.summarize_period(library, timezone=TZ, reference_date="2026-12-09")
+    assert r["combined"]["workout_count"] == 0
+    assert any("garmin" in n and "outdated" in n for n in r["notes"])
+    assert any("apple_health" in n and "outdated" in n for n in r["notes"])
+
+
+def test_only_one_source_present(tmp_path):
+    shutil.copy(SAMPLES / "garmin_run_2026-11-17.fit", tmp_path)
+    r = service.summarize_period(Library(tmp_path), timezone=TZ, reference_date="2026-11-18")
+    assert r["sources_without_data"] == ["apple_health"]
+    assert "No apple_health files in the data directory." in r["notes"]
+
+
+def test_duplicate_across_devices_withholds_combined_total(tmp_path):
+    shutil.copy(SAMPLES / "garmin_run_2026-11-17.fit", tmp_path)
+    # The same Tuesday run, recorded by the Apple Watch too.
+    same_run = AppleWorkout(
+        start=datetime.fromisoformat("2026-11-17T06:30:20-03:00"),
+        end=datetime.fromisoformat("2026-11-17T07:15:30-03:00"),
+        duration=44.9,
+        distance=8.39,
+    )
+    (tmp_path / "export.xml").write_text(apple_health_xml([same_run]))
+    library = Library(tmp_path)
+
+    flagged = service.summarize_period(library, timezone=TZ, reference_date="2026-11-18")
+    assert flagged["combined"] is None
+    assert len(flagged["possible_duplicates"]) == 1
+    assert flagged["by_source"]["garmin"]["distance_km"] == 8.42
+    assert flagged["by_source"]["apple_health"]["distance_km"] == 8.39
+    assert any("possible duplicate" in n for n in flagged["notes"])
+
+    preferred = service.summarize_period(
+        library, timezone=TZ, reference_date="2026-11-18", duplicate_policy="prefer_garmin"
+    )
+    assert preferred["combined"]["distance_km"] == 8.42
+    assert preferred["excluded_from_combined"][0]["source"] == "apple_health"
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"timezone": "Mars/Base"}, "Unknown time zone"),
+        ({"timezone": TZ, "start_date": "2026-11-01"}, "both start_date and end_date"),
+        ({"timezone": TZ, "reference_date": "18/11/2026"}, "ISO date"),
+        ({"timezone": TZ, "sport": "chess"}, "Unknown sport"),
+        ({"timezone": TZ, "duplicate_policy": "guess"}, "Unknown duplicate_policy"),
+    ],
+)
+def test_invalid_arguments(library, kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        service.summarize_period(library, **kwargs)
