@@ -81,6 +81,15 @@ Records are stored by `(source, source_id)`, so a second import of the same data
 - **Comparisons:** a period is compared only with its equivalent predecessor: week with the previous ISO week, month with the previous calendar month, a custom range with the same number of days before it. See [ADR 0007](adr/0007-comparisons-and-pace.md).
 - **Duplicate detection:** the same run recorded by a Garmin watch and an Apple Watch, or synced from Garmin Connect into Apple Health, would be counted twice. Records from *different* sources whose time ranges overlap substantially are flagged as possible duplicates **before** any combined total is produced. See [ADR 0005](adr/0005-duplicates-and-time-zones.md).
 
+### 3b. Goals
+
+`openclock.goals` evaluates goals the **user** sets: a metric (`distance_km`, `duration_min`, `workout_count`, `avg_pace`, `longest_km`), a target and a period (`week` or `month`). Goals come from `goals.toml` in the data folder, or are passed by the assistant after the user states them. OpenClock never invents a goal.
+
+- **Status** compares the actual value with the target. For totals in a period still in progress, it also compares with a **pro-rata** target (target × elapsed fraction), giving `on_track` or `behind`.
+- `as_of` fixes "now", and workouts after it are ignored, so results are reproducible.
+- **History** evaluates the same goal over previous equivalent periods. Periods before the first imported workout are `no_data`, not zero.
+- Suggestions stay with the assistant. The tool returns the numbers a suggestion must cite. See [ADR 0008](adr/0008-goals.md).
+
 ### 4. MCP server
 
 Read-only tools, documented in [docs/mcp.md](mcp.md):
@@ -88,6 +97,7 @@ Read-only tools, documented in [docs/mcp.md](mcp.md):
 - `list_workouts`: workouts in a period, with source and missing metrics.
 - `summarize_period`: totals and average pace per source for a week, month or custom date range, possible duplicates, and a combined total only when it is safe.
 - `compare_periods`: changes in count, distance, duration and pace against the equivalent previous period.
+- `goal_progress`: progress towards user goals, with status, what remains and recent history.
 
 The assistant is instructed to use these tools as the source of every number, state the period and source, and point out missing or stale data.
 
@@ -114,6 +124,7 @@ src/openclock/
     fit.py             # Garmin FIT
     apple_health.py    # Apple Health export.xml
   synthetic.py         # generator for synthetic sample files
+  goals.py             # user goals and progress
   report.py            # JSON views, units and rounding
   library.py           # loads a data directory into the store
   service.py           # read-only queries shared by MCP, CLI and channels

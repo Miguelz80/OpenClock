@@ -16,7 +16,7 @@ from typing import Annotated, Any, Literal
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from openclock import __version__, service
 from openclock.library import Library
@@ -37,6 +37,12 @@ the user how to combine before giving a combined total.
 periods (week with the previous week, month with the previous month). Quote the changes it \
 returns; a lower pace in seconds per km is faster. If the current period has not ended yet, \
 say that it is still in progress.
+- For goals use goal_progress. Goals come from the user: pass the goals they state in \
+`goals`, or rely on the goals file. Never invent a goal.
+- Any suggested training adjustment must name the goal it serves and the numbers behind it \
+(status, actual vs target, remaining, days_left, recent history). Keep adjustments small and \
+gradual, say when data is missing (no_data, unavailable), and present them as options, not \
+prescriptions.
 - Do not give medical advice; refer questions about pain, injury or diagnosis to a professional.
 """
 
@@ -71,6 +77,25 @@ DuplicatePolicyName = Annotated[
     ),
 ]
 SportName = Literal["running", "walking", "cycling", "swimming", "other", "all"]
+
+
+class GoalInput(BaseModel):
+    """A goal stated by the user."""
+
+    metric: Literal["distance_km", "duration_min", "workout_count", "avg_pace", "longest_km"] = (
+        Field(
+            description="distance_km and duration_min are totals; workout_count counts workouts; "
+            "avg_pace is met at or below the target; longest_km needs one workout that long."
+        )
+    )
+    target: float | str = Field(
+        description="km, minutes, count, or pace as 'M:SS' per km (e.g. '5:30')."
+    )
+    per: Literal["week", "month"] = "week"
+    sport: SportName = "running"
+    source: Literal["combined", "garmin", "apple_health"] = "combined"
+    id: str | None = None
+    description: str | None = None
 
 
 @contextmanager
@@ -160,6 +185,43 @@ def create_server(data_dir: str | Path) -> MCPServer:
                 sport=sport,
                 duplicate_policy=duplicate_policy,
                 period_kind=period,
+            )
+
+    @server.tool(annotations=_READ_ONLY)
+    def goal_progress(
+        timezone: TimeZone = None,
+        reference_date: Annotated[
+            str | None,
+            Field(description="Day inside the week/month to evaluate. Defaults to as_of's day."),
+        ] = None,
+        as_of: Annotated[
+            str | None,
+            Field(
+                description="Evaluate as of this moment: a date (counts that whole day) or "
+                "date-time. Defaults to now."
+            ),
+        ] = None,
+        goals: Annotated[
+            list[GoalInput] | None,
+            Field(description="Goals stated by the user. Omit to use the goals file."),
+        ] = None,
+        duplicate_policy: DuplicatePolicyName = "flag",
+        history: Annotated[
+            int, Field(ge=0, le=12, description="How many previous periods to include.")
+        ] = 4,
+    ) -> dict[str, Any]:
+        """Progress towards the user's training goals in the current week or month: actual vs
+        target, status (met, on_track, behind, in_progress, not_met, no_data, unavailable),
+        what remains, days left and how the previous periods went."""
+        with _user_errors():
+            return service.goal_progress(
+                library,
+                timezone=timezone,
+                reference_date=reference_date,
+                as_of=as_of,
+                goals=[g.model_dump(exclude_none=True) for g in goals] if goals else None,
+                duplicate_policy=duplicate_policy,
+                history=history,
             )
 
     return server

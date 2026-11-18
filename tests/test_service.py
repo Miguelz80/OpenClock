@@ -194,3 +194,89 @@ def test_compare_custom_range(library):
 def test_unknown_period_kind(library):
     with pytest.raises(ValueError, match="Unknown period"):
         service.summarize_period(library, timezone=TZ, period_kind="year")
+
+
+# --- milestone 2: goals ----------------------------------------------------------------------
+
+
+def _by_id(result):
+    return {g["id"]: g for g in result["goals"]}
+
+
+def test_goal_progress_from_goals_file(library):
+    r = service.goal_progress(library, timezone=TZ, as_of="2026-11-19", history=1)
+    assert r["goals_from"] == "goals.toml"
+    assert r["as_of"] == "2026-11-20T00:00-03:00"  # a date means "the whole day counts"
+    goals = _by_id(r)
+    distance = goals["weekly-distance"]
+    assert distance["status"] == "on_track"
+    assert (distance["actual"], distance["target"], distance["remaining"]) == (13.44, 20, 6.56)
+    assert distance["expected_by_now"] == 11.43
+    assert distance["days_left"] == 3
+    assert distance["history"] == [
+        {
+            "first_day": "2026-11-09",
+            "last_day": "2026-11-15",
+            "actual": 10.6,
+            "actual_display": "10.60 km",
+            "status": "not_met",
+        }
+    ]
+    assert [b["source_file"] for b in distance["based_on"]] == [
+        "garmin_run_2026-11-17.fit",
+        "apple_health_export_sample.xml",
+    ]
+    assert goals["weekly-runs"]["actual"] == 2
+    assert goals["weekly-pace"]["status"] == "met"
+    assert goals["weekly-pace"]["actual_display"] == "5:30 /km"
+    assert goals["monthly-long-run"]["status"] == "in_progress"
+    assert goals["monthly-long-run"]["period"]["kind"] == "month"
+
+
+def test_goal_progress_after_the_week(library):
+    r = service.goal_progress(library, timezone=TZ, as_of="2026-11-22", history=0)
+    goals = _by_id(r)
+    assert goals["weekly-distance"]["status"] == "not_met"
+    assert goals["weekly-distance"]["progress_pct"] == 67.2
+    assert goals["weekly-runs"]["status"] == "not_met"
+    assert goals["weekly-pace"]["status"] == "met"
+
+
+def test_inline_goals_override_the_file(library):
+    r = service.goal_progress(
+        library,
+        timezone=TZ,
+        as_of="2026-11-22",
+        goals=[{"id": "ten", "metric": "distance_km", "target": 10}],
+    )
+    assert r["goals_from"] == "request"
+    assert [g["id"] for g in r["goals"]] == ["ten"]
+    assert r["goals"][0]["status"] == "met"
+
+
+def test_reference_date_selects_another_week(library):
+    r = service.goal_progress(
+        library, timezone=TZ, as_of="2026-11-22", reference_date="2026-11-12", history=0
+    )
+    assert _by_id(r)["weekly-distance"]["period"]["first_day"] == "2026-11-09"
+    assert _by_id(r)["weekly-distance"]["actual"] == 10.6
+
+
+def test_no_goals_note(tmp_path):
+    shutil.copy(SAMPLES / "garmin_run_2026-11-17.fit", tmp_path)
+    r = service.goal_progress(Library(tmp_path), timezone=TZ, as_of="2026-11-19")
+    assert r["goals"] == []
+    assert any("No goals defined" in n for n in r["notes"])
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"as_of": "Thursday"}, "as_of must be"),
+        ({"history": 50}, "history must be"),
+        ({"goals": [{"metric": "distance_km"}]}, "'target' is required"),
+    ],
+)
+def test_goal_progress_invalid_arguments(library, kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        service.goal_progress(library, timezone=TZ, **kwargs)

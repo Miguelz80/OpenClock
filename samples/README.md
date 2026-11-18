@@ -69,3 +69,14 @@ With `UTC` instead, Apple Health would show 2 runs and 8.12 km, because workout 
 | Garmin | 7.50 km · 41:15 · 5:30 /km | 8.42 km · 45:10 · 5:22 /km | +0.92 km (+12.3%), 8 s/km faster |
 | Apple Health | 3.10 km · 18:30 · 5:58 /km (Sunday-night run) | 5.02 km · 28:45 · 5:44 /km | +1.92 km (+61.9%), 14 s/km faster |
 | **Combined** | 10.60 km · 59:45 · 5:38 /km | 13.44 km · 1:13:55 · 5:30 /km | +2.84 km (+26.8%), 8 s/km faster |
+
+## `goals.toml`
+
+Four synthetic goals used by `openclock goals` and the `goal_progress` tool: 20 km of running per week, 3 runs per week, an average pace of 5:35 /km or faster per week, and one 10 km run per month. Expected progress as of the end of Thursday 2026-11-19 (`--as-of 2026-11-19`):
+
+| Goal | Actual | Status |
+|---|---|---|
+| 20 km / week | 13.44 km, with 11.43 km expected by now (4/7 of the week); 6.56 km remaining in 3 days | `on_track` |
+| 3 runs / week | 2, with 1.71 expected by now | `on_track` |
+| ≤ 5:35 /km | 5:30 /km | `met` |
+| 10 km run / month | longest so far 8.42 km | `in_progress` |

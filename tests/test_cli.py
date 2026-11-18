@@ -53,3 +53,14 @@ def test_compare_table(capsys):
 def test_month_period_flag(capsys):
     assert main(["summary", *BASE, "--period", "month"]) == 0
     assert "Month 2026-11-01 to 2026-11-30" in capsys.readouterr().out
+
+
+def test_goals_command(capsys):
+    args = ["goals", "--data-dir", SAMPLES, "--timezone", "America/Sao_Paulo"]
+    assert main([*args, "--as-of", "2026-11-19", "--history", "1"]) == 0
+    out = capsys.readouterr().out
+    assert "Goals as of end of 2026-11-19" in out
+    assert "ON TRACK" in out
+    assert "remaining 6.56 km in 3 day(s)" in out
+    assert main([*args, "--as-of", "2026-11-19", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["goals_from"] == "goals.toml"

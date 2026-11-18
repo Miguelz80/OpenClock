@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timedelta
 from typing import Any
 
 from openclock import service
@@ -107,6 +108,55 @@ def format_comparison(result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+_STATUS = {
+    "met": "MET",
+    "on_track": "ON TRACK",
+    "behind": "BEHIND",
+    "in_progress": "IN PROGRESS",
+    "not_met": "NOT MET",
+    "not_started": "NOT STARTED",
+    "no_data": "NO DATA",
+    "unavailable": "UNAVAILABLE",
+}
+
+
+def format_goals(result: dict[str, Any]) -> str:
+    as_of = datetime.fromisoformat(result["as_of"])
+    when = (
+        f"end of {(as_of - timedelta(days=1)).date().isoformat()}"
+        if (as_of.hour, as_of.minute) == (0, 0)
+        else result["as_of"]
+    )
+    lines = [f"Goals as of {when} ({result['timezone']}) · from: {result['goals_from']}"]
+    for g in result["goals"]:
+        p = g["period"]
+        lines += [
+            "",
+            f"{g['id']}: {g['description'] or g['metric']} "
+            f"(target {g['target_display']} per {g['per']}, {g['sport']}, {g['source']})",
+            f"  {p['first_day']} to {p['last_day']} · {g['elapsed_pct']:.0f}% elapsed · "
+            f"{_STATUS[g['status']]}",
+            f"  actual {g['actual_display']}"
+            + (f" ({g['progress_pct']}% of target)" if isinstance(g["progress_pct"], float) else "")
+            + (
+                f" · expected by now {g['expected_by_now']} {g['unit']}"
+                if g["expected_by_now"] is not None
+                else ""
+            )
+            + (f" · remaining {g['remaining']} {g['unit']}" if g["remaining"] else "")
+            + (f" in {g['days_left']} day(s)" if g["remaining"] and g["days_left"] else ""),
+        ]
+        if g["history"]:
+            past = ", ".join(
+                f"{h['first_day']}: {h['actual_display']} ({_STATUS[h['status']]})"
+                for h in g["history"]
+            )
+            lines.append(f"  previous: {past}")
+    if result["notes"]:
+        lines += ["", "Notes:"] + [f"  - {n}" for n in result["notes"]]
+    return "\n".join(lines)
+
+
 def format_list(result: dict[str, Any]) -> str:
     lines = [_period_line(result), ""]
     lines += _workout_lines(result["workouts"]) or ["  none"]
@@ -152,6 +202,20 @@ def main(argv: list[str] | None = None) -> int:
         choices=["flag", "count_all", "prefer_garmin", "prefer_apple_health"],
     )
 
+    goals = sub.add_parser("goals", help="Progress towards the goals in goals.toml")
+    goals.add_argument("--data-dir", default=os.environ.get("OPENCLOCK_DATA_DIR", "samples"))
+    goals.add_argument("--timezone", help="IANA time zone, e.g. America/Sao_Paulo")
+    goals.add_argument("--as-of", help="Date (whole day counts) or date-time; default now")
+    goals.add_argument("--date", dest="reference_date", help="Day inside the week/month")
+    goals.add_argument("--goals-file", help="Default: goals.toml in the data folder")
+    goals.add_argument("--history", type=int, default=4)
+    goals.add_argument(
+        "--duplicates",
+        default="flag",
+        choices=["flag", "count_all", "prefer_garmin", "prefer_apple_health"],
+    )
+    goals.add_argument("--json", action="store_true", help="Print the raw JSON")
+
     listing = sub.add_parser("list", help="Workouts in a week or date range")
     _add_query_args(listing)
     listing.add_argument("--sport", default="all")
@@ -167,6 +231,22 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"wrote {path}")
             return 0
         library = Library(args.data_dir)
+        if args.command == "goals":
+            result = service.goal_progress(
+                library,
+                timezone=args.timezone,
+                reference_date=args.reference_date,
+                as_of=args.as_of,
+                duplicate_policy=args.duplicates,
+                history=args.history,
+                goals_file=args.goals_file,
+            )
+            print(
+                json.dumps(result, indent=2, ensure_ascii=False)
+                if args.json
+                else format_goals(result)
+            )
+            return 0
         common = dict(
             timezone=args.timezone,
             start_date=args.start_date,

@@ -11,5 +11,6 @@ Each ADR records one decision: the context, what was decided, and its consequenc
 | [0005](0005-duplicates-and-time-zones.md) | Duplicate flagging and time-zone-aware periods | Accepted |
 | [0006](0006-branching.md) | One branch per area, merged through pull requests | Accepted |
 | [0007](0007-comparisons-and-pace.md) | Equivalent-period comparisons and distance-weighted pace | Accepted |
+| [0008](0008-goals.md) | User-defined goals, computed progress, suggestions left to the assistant | Accepted |
 
 To add one, copy [template.md](template.md), give it the next number, and include it in the pull request that implements the decision.

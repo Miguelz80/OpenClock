@@ -197,3 +197,99 @@ def comparison_to_dict(comparison: PeriodComparison) -> dict[str, Any]:
             "combined_withheld_reason": comparison.combined_withheld_reason,
         },
     }
+
+
+# --- goals ---------------------------------------------------------------------------------
+
+_GOAL_UNITS = {
+    "distance_km": "km",
+    "duration_min": "min",
+    "workout_count": "workouts",
+    "avg_pace": "s/km",
+    "longest_km": "km",
+}
+
+
+def format_goal_value(metric: str, value: float | None) -> str:
+    """Human-readable value for a goal metric."""
+    if value is None:
+        return UNAVAILABLE
+    if metric in ("distance_km", "longest_km"):
+        return f"{value:.2f} km"
+    if metric == "duration_min":
+        return format_duration(value * 60)
+    if metric == "workout_count":
+        return f"{value:.0f}"
+    return format_pace(value)
+
+
+def _goal_number(metric: str, value: float | None) -> float | int | str:
+    """Pace to 0.1 s/km; whole workout counts as integers; everything else to 0.01."""
+    if value is None:
+        return UNAVAILABLE
+    if metric == "avg_pace":
+        return round(value, 1)
+    if metric == "workout_count" and float(value).is_integer():
+        return int(value)
+    return round(value, 2)
+
+
+def goal_progress_to_dict(progress: Any) -> dict[str, Any]:
+    """Serialize a ``goals.GoalProgress``."""
+    goal, metric = progress.goal, progress.goal.metric.value
+    tz = resolve_timezone(progress.period.timezone)
+    actual = progress.actual
+    progress_pct: float | str = UNAVAILABLE
+    if actual is not None and metric != "avg_pace":
+        progress_pct = round(actual / goal.target * 100, 1)
+    met, judged = progress.recent_met
+    return {
+        "id": goal.id,
+        "description": goal.description,
+        "metric": metric,
+        "unit": _GOAL_UNITS[metric],
+        "per": goal.per,
+        "sport": goal.sport.value if goal.sport else "all",
+        "source": goal.source.value if goal.source else "combined",
+        "target": _goal_number(metric, goal.target),
+        "target_display": format_goal_value(metric, goal.target),
+        "period": period_to_dict(progress.period),
+        "as_of": progress.as_of.astimezone(tz).isoformat(timespec="minutes"),
+        "elapsed_pct": round(progress.elapsed_fraction * 100, 1),
+        "status": progress.status.value,
+        "actual": _goal_number(metric, actual),
+        "actual_display": format_goal_value(metric, actual),
+        "progress_pct": progress_pct,
+        "expected_by_now": _goal_number(metric, progress.expected_by_now)
+        if progress.expected_by_now is not None
+        else None,
+        "remaining": _goal_number(metric, progress.remaining)
+        if progress.remaining is not None
+        else None,
+        "days_left": progress.days_left,
+        "reason": progress.reason,
+        "based_on": [
+            {
+                "source": w.source.value,
+                "source_file": w.source_file,
+                "start_local": w.start.astimezone(tz).isoformat(timespec="minutes"),
+            }
+            for w in progress.workouts
+        ],
+        "history": [
+            {
+                "first_day": h.period.first_day.isoformat(),
+                "last_day": h.period.last_day.isoformat(),
+                "actual": _goal_number(metric, h.actual),
+                "actual_display": format_goal_value(metric, h.actual),
+                "status": h.status.value,
+            }
+            for h in progress.history
+        ],
+        "recent": {
+            "periods_judged": judged,
+            "periods_met": met,
+            "average": _goal_number(metric, progress.recent_average),
+            "average_display": format_goal_value(metric, progress.recent_average),
+        },
+    }
