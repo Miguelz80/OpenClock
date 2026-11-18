@@ -31,3 +31,27 @@ To inspect the raw file yourself:
 ```bash
 python -c "from garmin_fit_sdk import Decoder, Stream; print(Decoder(Stream.from_file('samples/garmin_run_2026-11-17.fit')).read()[0]['session_mesgs'])"
 ```
+
+## `apple_health_export_sample.xml`
+
+A synthetic file in the shape of the Health app's `export.xml` ("Export All Health Data"). It holds three workouts and one heart-rate `<Record>` next to each, which the importer ignores.
+
+| # | `workoutActivityType` | `startDate` (local) | `duration` | Distance (`WorkoutStatistics`) | In the demo week? |
+|---|---|---|---|---|---|
+| 1 | `Running` | Sun 2026-11-15 22:10 −0300 | 18.5 min | 3.1 km | **No.** It is Monday 01:10 in UTC, but Sunday in São Paulo. |
+| 2 | `Running` | Thu 2026-11-19 18:05 −0300 | 28.75 min = **28:45** | **5.02 km** | Yes |
+| 3 | `Walking` | Sat 2026-11-21 09:00 −0300 | 40 min | 3.2 km | Yes, but it is a walk, so it is excluded from running totals |
+
+Workout 1 is deliberately placed to show why weeks must be computed in the user's time zone. Workout 3 shows sport filtering.
+
+## Expected answer for the demo week
+
+**"How far did I run this week on each source?"** for the week of 2026-11-16 in `America/Sao_Paulo`:
+
+| Source | Runs | Distance | Duration | From |
+|---|---|---|---|---|
+| Garmin | 1 | 8.42 km | 45:10 | `garmin_run_2026-11-17.fit`, session 0 |
+| Apple Health | 1 | 5.02 km | 28:45 | `apple_health_export_sample.xml`, workout 2 |
+| **Combined** | 2 | **13.44 km** | **1:13:55** | no possible duplicates (Tuesday vs Thursday) |
+
+With `UTC` instead, Apple Health would show 2 runs and 8.12 km, because workout 1 falls on Monday in UTC.
