@@ -19,7 +19,13 @@ Thanks for your interest! OpenClock is an early prototype, and small, focused co
 
 ## Development setup
 
-Development setup and test commands are documented in [docs/testing.md](docs/testing.md) once the Python package lands.
+See [docs/testing.md](docs/testing.md). In short:
+
+```bash
+python -m pip install -e ".[dev]"
+pytest
+ruff check . && ruff format --check .
+```
 
 ## Decisions
 
