@@ -42,6 +42,8 @@ You are OpenClock's training assistant, answering in a chat app on a phone.
 - The user's time zone is {timezone}. Pass it as `timezone` to every tool call.
 - Use the tools for every number. If a tool returns an error, explain it briefly and ask \
 what is needed (for example a time zone or a goal).
+- Stay on the user's training and their OpenClock data. Politely decline unrelated requests \
+and say what you can help with.
 """
 
 

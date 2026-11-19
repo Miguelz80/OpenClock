@@ -109,9 +109,9 @@ The tools are thin wrappers around `openclock.service`, which the CLI also uses 
 |---|---|---|---|
 | A. Bring your own AI | User installs OpenClock and adds `openclock-mcp` to Claude Desktop, Claude Code or another MCP client ([guide](mcp.md#mode-a-install-in-your-own-ai-app)) | User's existing subscription | None |
 | B. Telegram bot | `openclock-telegram`: commands answered without AI; free-form questions answered by Claude with the same MCP tools ([guide](telegram.md)) | Operator, per free-form question | None on Telegram |
-| B'. WhatsApp (later) | Same assistant and report text, official Cloud API transport | Operator | Per template message outside the 24h window |
+| B'. WhatsApp | `openclock-whatsapp`: official Cloud API webhook; same chat core; weekly report as an approved template ([guide](whatsapp.md)) | Operator, per free-form question | Per template message (weekly push); check Meta's current rates |
 
-`openclock.assistant` connects to the MCP server **in-process**, so Mode A and Mode B use identical tools. `openclock.channels.messages` formats reports in pt-BR or English from `openclock.service` results, and `openclock.channels.telegram` adds transport, the allowlist of pilot chats and usage logging. See [ADR 0003](adr/0003-channel-strategy.md) and [ADR 0009](adr/0009-telegram-bot.md).
+`openclock.assistant` connects to the MCP server **in-process**, so Mode A and Mode B use identical tools. `openclock.channels.core` holds what every chat channel shares: the allowlist, commands, reports, conversations and usage logging. `openclock.channels.messages` formats reports in pt-BR or English. `telegram.py` and `whatsapp.py` only move text in and out. See [ADR 0003](adr/0003-channel-strategy.md), [ADR 0009](adr/0009-telegram-bot.md) and [ADR 0010](adr/0010-whatsapp-adapter.md).
 
 ## Repository layout
 
@@ -133,8 +133,10 @@ src/openclock/
   cli.py               # command-line checks
   assistant.py         # Claude tool loop over the in-process MCP tools (Mode B)
   channels/
+    core.py            # shared chat logic: allowlist, commands, reports, conversations, usage
     messages.py        # report text for chats (pt-BR / English), no AI
-    telegram.py        # Telegram bot: polling, commands, weekly push, usage log
+    telegram.py        # Telegram transport (long polling)
+    whatsapp.py        # WhatsApp Cloud API transport (signed webhook, weekly template)
 samples/               # synthetic files used by the demo
 tests/
 docs/
