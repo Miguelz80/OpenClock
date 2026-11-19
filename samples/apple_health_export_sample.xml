@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE HealthData [
+<!-- Synthetic export in the shape of the Health app's export.xml -->
+<!ELEMENT HealthData (ExportDate,Me,(Record|Workout)*)>
+<!ATTLIST HealthData locale CDATA #REQUIRED>
+]>
+<HealthData locale="en_US">
+ <ExportDate value="2026-11-22 20:00:00 -0300"/>
+ <Me HKCharacteristicTypeIdentifierDateOfBirth="" HKCharacteristicTypeIdentifierBiologicalSex="HKBiologicalSexNotSet"/>
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Synthetic Apple Watch" unit="count/min" creationDate="2026-11-15 22:29:00 -0300" startDate="2026-11-15 22:10:00 -0300" endDate="2026-11-15 22:10:00 -0300" value="140"/>
+ <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="18.5" durationUnit="min" sourceName="Synthetic Apple Watch" sourceVersion="11.0" creationDate="2026-11-15 22:29:00 -0300" startDate="2026-11-15 22:10:00 -0300" endDate="2026-11-15 22:29:00 -0300">
+  <MetadataEntry key="HKIndoorWorkout" value="0"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" startDate="2026-11-15 22:10:00 -0300" endDate="2026-11-15 22:29:00 -0300" sum="3.1" unit="km"/>
+ </Workout>
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Synthetic Apple Watch" unit="count/min" creationDate="2026-11-19 18:34:20 -0300" startDate="2026-11-19 18:05:00 -0300" endDate="2026-11-19 18:05:00 -0300" value="140"/>
+ <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="28.75" durationUnit="min" sourceName="Synthetic Apple Watch" sourceVersion="11.0" creationDate="2026-11-19 18:34:20 -0300" startDate="2026-11-19 18:05:00 -0300" endDate="2026-11-19 18:34:20 -0300">
+  <MetadataEntry key="HKIndoorWorkout" value="0"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" startDate="2026-11-19 18:05:00 -0300" endDate="2026-11-19 18:34:20 -0300" sum="5.02" unit="km"/>
+ </Workout>
+ <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Synthetic Apple Watch" unit="count/min" creationDate="2026-11-21 09:40:00 -0300" startDate="2026-11-21 09:00:00 -0300" endDate="2026-11-21 09:00:00 -0300" value="140"/>
+ <Workout workoutActivityType="HKWorkoutActivityTypeWalking" duration="40.0" durationUnit="min" sourceName="Synthetic Apple Watch" sourceVersion="11.0" creationDate="2026-11-21 09:40:00 -0300" startDate="2026-11-21 09:00:00 -0300" endDate="2026-11-21 09:40:00 -0300">
+  <MetadataEntry key="HKIndoorWorkout" value="0"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" startDate="2026-11-21 09:00:00 -0300" endDate="2026-11-21 09:40:00 -0300" sum="3.2" unit="km"/>
+ </Workout>
+</HealthData>

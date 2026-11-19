@@ -11,6 +11,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from xml.sax.saxutils import quoteattr
 
 from garmin_fit_sdk import Encoder, Profile
 
@@ -84,6 +85,96 @@ def fit_bytes(
     return encoder.close()
 
 
+@dataclass(frozen=True, slots=True)
+class AppleWorkout:
+    """One ``<Workout>`` for a synthetic Apple Health export.
+
+    ``duration`` and ``distance`` are written in ``duration_unit`` / ``distance_unit`` exactly as
+    given, so tests can exercise unit conversion. ``legacy=True`` writes the pre-iOS 16
+    ``totalDistance`` attributes instead of a ``<WorkoutStatistics>`` child.
+    """
+
+    start: datetime
+    end: datetime
+    duration: float | None
+    distance: float | None
+    activity: str = "HKWorkoutActivityTypeRunning"
+    duration_unit: str = "min"
+    distance_unit: str = "km"
+    source_name: str = "Synthetic Apple Watch"
+    legacy: bool = False
+
+
+def _apple_date(moment: datetime) -> str:
+    return moment.strftime("%Y-%m-%d %H:%M:%S %z")
+
+
+def _attrs(**values: object) -> str:
+    return " ".join(f"{k}={quoteattr(str(v))}" for k, v in values.items() if v is not None)
+
+
+_APPLE_DTD = """<!DOCTYPE HealthData [
+<!-- Synthetic export in the shape of the Health app's export.xml -->
+<!ELEMENT HealthData (ExportDate,Me,(Record|Workout)*)>
+<!ATTLIST HealthData locale CDATA #REQUIRED>
+]>"""
+
+
+def apple_health_xml(workouts: list[AppleWorkout], exported: datetime | None = None) -> str:
+    """Build a synthetic Apple Health ``export.xml`` document."""
+    exported = exported or max((w.end for w in workouts), default=datetime(2026, 1, 1))
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        _APPLE_DTD,
+        '<HealthData locale="en_US">',
+        f" <ExportDate {_attrs(value=_apple_date(exported))}/>",
+        ' <Me HKCharacteristicTypeIdentifierDateOfBirth="" '
+        'HKCharacteristicTypeIdentifierBiologicalSex="HKBiologicalSexNotSet"/>',
+    ]
+    for w in workouts:
+        # A heart-rate sample next to each workout: real exports are mostly <Record>s.
+        lines.append(
+            " <Record "
+            + _attrs(
+                type="HKQuantityTypeIdentifierHeartRate",
+                sourceName=w.source_name,
+                unit="count/min",
+                creationDate=_apple_date(w.end),
+                startDate=_apple_date(w.start),
+                endDate=_apple_date(w.start),
+                value=140,
+            )
+            + "/>"
+        )
+        attrs = {
+            "workoutActivityType": w.activity,
+            "duration": w.duration,
+            "durationUnit": w.duration_unit if w.duration is not None else None,
+            "sourceName": w.source_name,
+            "sourceVersion": "11.0",
+            "creationDate": _apple_date(w.end),
+            "startDate": _apple_date(w.start),
+            "endDate": _apple_date(w.end),
+        }
+        if w.legacy and w.distance is not None:
+            attrs["totalDistance"] = w.distance
+            attrs["totalDistanceUnit"] = w.distance_unit
+        lines.append(f" <Workout {_attrs(**attrs)}>")
+        lines.append('  <MetadataEntry key="HKIndoorWorkout" value="0"/>')
+        if not w.legacy and w.distance is not None:
+            stat = _attrs(
+                type="HKQuantityTypeIdentifierDistanceWalkingRunning",
+                startDate=_apple_date(w.start),
+                endDate=_apple_date(w.end),
+                sum=w.distance,
+                unit=w.distance_unit,
+            )
+            lines.append(f"  <WorkoutStatistics {stat}/>")
+        lines.append(" </Workout>")
+    lines.append("</HealthData>")
+    return "\n".join(lines) + "\n"
+
+
 # --- Demo samples --------------------------------------------------------------------------
 # Week of Monday 2026-11-16 in America/Sao_Paulo (UTC-03:00, no DST).
 
@@ -96,6 +187,33 @@ GARMIN_DEMO_SESSION = FitSession(
     distance_m=8420.0,
 )
 
+APPLE_DEMO_FILE = "apple_health_export_sample.xml"
+APPLE_DEMO_WORKOUTS = [
+    #: Sunday 2026-11-15 22:10 in São Paulo (= Monday 01:10 UTC): belongs to the PREVIOUS week.
+    AppleWorkout(
+        start=datetime.fromisoformat("2026-11-15T22:10:00-03:00"),
+        end=datetime.fromisoformat("2026-11-15T22:29:00-03:00"),
+        duration=18.5,
+        distance=3.1,
+    ),
+    #: Thursday 2026-11-19 18:05 in São Paulo: 5.02 km in 28:45. Counted this week.
+    AppleWorkout(
+        start=datetime.fromisoformat("2026-11-19T18:05:00-03:00"),
+        end=datetime.fromisoformat("2026-11-19T18:34:20-03:00"),
+        duration=28.75,
+        distance=5.02,
+    ),
+    #: Saturday 2026-11-21 09:00 in São Paulo: a walk, so not part of the running total.
+    AppleWorkout(
+        start=datetime.fromisoformat("2026-11-21T09:00:00-03:00"),
+        end=datetime.fromisoformat("2026-11-21T09:40:00-03:00"),
+        duration=40.0,
+        distance=3.2,
+        activity="HKWorkoutActivityTypeWalking",
+    ),
+]
+APPLE_DEMO_EXPORTED = datetime.fromisoformat("2026-11-22T20:00:00-03:00")
+
 
 def write_samples(directory: str | Path) -> list[Path]:
     """Write the demo sample files into ``directory`` and return their paths."""
@@ -103,7 +221,9 @@ def write_samples(directory: str | Path) -> list[Path]:
     directory.mkdir(parents=True, exist_ok=True)
     garmin = directory / GARMIN_DEMO_FILE
     garmin.write_bytes(fit_bytes([GARMIN_DEMO_SESSION]))
-    return [garmin]
+    apple = directory / APPLE_DEMO_FILE
+    apple.write_text(apple_health_xml(APPLE_DEMO_WORKOUTS, APPLE_DEMO_EXPORTED), encoding="utf-8")
+    return [garmin, apple]
 
 
 if __name__ == "__main__":  # pragma: no cover
