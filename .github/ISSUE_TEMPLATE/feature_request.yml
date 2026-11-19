@@ -1,0 +1,21 @@
+name: Use case or feature
+description: A question OpenClock should answer, a data source or format, or a channel
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: The question or need
+      description: What a person wants to know or do, in their words (e.g. "How did my long runs change this month?").
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Data involved
+      description: Which source and metrics (Garmin FIT, Apple Health, others), and what is missing today.
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected answer
+      description: What a good answer looks like, ideally with a synthetic example and the numbers you expect.

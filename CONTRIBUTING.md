@@ -15,7 +15,7 @@ Thanks for your interest! OpenClock is an early prototype, and small, focused co
 2. Create a branch from `main` named `<type>/<area>` (see [ADR 0006](docs/adr/0006-branching.md)), e.g. `feat/importer-tcx` or `fix/apple-units`.
 3. Make your change with tests.
 4. Run the checks locally (see below).
-5. Open a pull request against `main`, or against the parent branch for stacked work, and explain what changed and how you verified it.
+5. Open a pull request against `main`, or against the parent branch for stacked work, and fill in the template: what changed and how you verified it. `main` is protected, so a pull request can be merged only when the CI checks `test (3.11)`, `test (3.12)` and `test (3.13)` pass.
 
 ## Development setup
 
