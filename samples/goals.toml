@@ -1,0 +1,32 @@
+# Synthetic training goals for the demo. All goals are evaluated per ISO week (Mon-Sun) or
+# calendar month, in the time zone passed to OpenClock.
+#
+#   metric = distance_km | duration_min | workout_count | avg_pace | longest_km
+#   per    = week | month                  (default: week)
+#   sport  = running | walking | ... | all (default: running)
+#   source = combined | garmin | apple_health (default: combined)
+
+[[goal]]
+id = "weekly-distance"
+description = "Run 20 km per week"
+metric = "distance_km"
+target = 20
+
+[[goal]]
+id = "weekly-runs"
+description = "Run 3 times per week"
+metric = "workout_count"
+target = 3
+
+[[goal]]
+id = "weekly-pace"
+description = "Average 5:35 /km or faster"
+metric = "avg_pace"
+target = "5:35"
+
+[[goal]]
+id = "monthly-long-run"
+description = "One 10 km run per month"
+metric = "longest_km"
+target = 10
+per = "month"

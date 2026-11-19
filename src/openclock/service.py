@@ -7,9 +7,12 @@ sources involved and anything missing or possibly outdated.
 from __future__ import annotations
 
 import os
-from datetime import date
+from collections.abc import Mapping, Sequence
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
+from openclock.goals import Goal, GoalStatus, evaluate, load_goals_file, parse_goals, period_for
 from openclock.library import Library
 from openclock.metrics import DuplicatePolicy, PeriodSummary, compare, filter_workouts, summarize
 from openclock.models import Source, Sport
@@ -22,11 +25,19 @@ from openclock.periods import (
     today_in,
     week_containing,
 )
-from openclock.report import comparison_to_dict, period_to_dict, summary_to_dict, workout_to_dict
+from openclock.report import (
+    comparison_to_dict,
+    goal_progress_to_dict,
+    period_to_dict,
+    summary_to_dict,
+    workout_to_dict,
+)
 
 PERIOD_KINDS = ("week", "month")
 
 TIMEZONE_ENV = "OPENCLOCK_TIMEZONE"
+GOALS_ENV = "OPENCLOCK_GOALS_FILE"
+GOALS_FILE = "goals.toml"
 
 
 def _parse_date(value: str | None, name: str) -> date | None:
@@ -237,3 +248,98 @@ def compare_periods(
         + data_notes
     )
     return result
+
+
+# --- goals -----------------------------------------------------------------------------------
+
+
+def parse_as_of(value: str | None, tz_name: str) -> datetime:
+    """``None`` -> now; ``"2026-11-19"`` -> the END of that day (all of it counts);
+    ``"2026-11-19T18:00"`` -> that moment in ``tz_name`` unless an offset is given."""
+    tz = resolve_timezone(tz_name)
+    if not value:
+        return datetime.now(UTC).astimezone(tz)
+    try:
+        if len(value) == 10:
+            day = date.fromisoformat(value)
+            return datetime(day.year, day.month, day.day, tzinfo=tz) + timedelta(days=1)
+        moment = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(
+            f"as_of must be a date (2026-11-19) or date-time (2026-11-19T18:00), got {value!r}"
+        ) from exc
+    return moment if moment.tzinfo else moment.replace(tzinfo=tz)
+
+
+def goals_path(library: Library, goals_file: str | Path | None = None) -> Path:
+    if goals_file:
+        return Path(goals_file)
+    if os.environ.get(GOALS_ENV):
+        return Path(os.environ[GOALS_ENV])
+    return library.data_dir / GOALS_FILE
+
+
+def resolve_goals(
+    library: Library,
+    goals: Sequence[Mapping[str, Any]] | None = None,
+    goals_file: str | Path | None = None,
+) -> tuple[list[Goal], str]:
+    """Goals passed in the call win; otherwise read the goals file if it exists."""
+    if goals:
+        return parse_goals(goals), "request"
+    path = goals_path(library, goals_file)
+    if path.is_file():
+        return load_goals_file(path), path.name
+    return [], "none"
+
+
+def goal_progress(
+    library: Library,
+    timezone: str | None = None,
+    reference_date: str | None = None,
+    as_of: str | None = None,
+    goals: Sequence[Mapping[str, Any]] | None = None,
+    duplicate_policy: str = "flag",
+    history: int = 4,
+    goals_file: str | Path | None = None,
+) -> dict[str, Any]:
+    """Progress towards each goal in the week/month containing ``reference_date``.
+
+    ``reference_date`` defaults to the day of ``as_of``, and ``as_of`` defaults to now.
+    """
+    tz_name, notes = choose_timezone(timezone)
+    moment = parse_as_of(as_of, tz_name)
+    if not 0 <= history <= 12:
+        raise ValueError("history must be between 0 and 12 periods")
+    reference = (
+        _parse_date(reference_date, "reference_date")
+        or (moment - timedelta(microseconds=1)).astimezone(resolve_timezone(tz_name)).date()
+    )
+    policy = _policy(duplicate_policy)
+    goal_list, origin = resolve_goals(library, goals, goals_file)
+    library.refresh()
+    workouts = library.workouts()
+    results = []
+    for goal in goal_list:
+        period = period_for(goal, reference, tz_name)
+        progress = evaluate(goal, workouts, period, moment, policy, history)
+        results.append(goal_progress_to_dict(progress))
+        if progress.status == GoalStatus.UNAVAILABLE and progress.reason:
+            notes.append(f"Goal {goal.id}: {progress.reason}")
+    if not goal_list:
+        notes.append(
+            "No goals defined. Ask the user for a goal (for example 20 km of running per "
+            f"week) and pass it in `goals`, or add it to {GOALS_FILE} in the data folder."
+        )
+    if any(r["period"]["kind"] == "week" for r in results) or not results:
+        status, data_notes = data_status(library, week_containing(reference, tz_name))
+    else:
+        status, data_notes = data_status(library, month_containing(reference, tz_name))
+    return {
+        "as_of": moment.isoformat(timespec="minutes"),
+        "timezone": tz_name,
+        "goals_from": origin,
+        "goals": results,
+        "data_status": status,
+        "notes": notes + data_notes,
+    }

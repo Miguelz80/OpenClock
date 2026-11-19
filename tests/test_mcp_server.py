@@ -22,7 +22,7 @@ def test_tools_are_listed_as_read_only():
             return (await client.list_tools()).tools
 
     tools = {t.name: t for t in asyncio.run(run())}
-    assert set(tools) == {"list_workouts", "summarize_period", "compare_periods"}
+    assert set(tools) == {"list_workouts", "summarize_period", "compare_periods", "goal_progress"}
     for tool in tools.values():
         assert tool.annotations.read_only_hint is True
         assert "timezone" in tool.input_schema["properties"]
@@ -62,6 +62,25 @@ def test_compare_periods_over_mcp():
         "change_pct": 26.8,
     }
     assert combined["avg_pace"]["direction"] == "faster"
+
+
+def test_goal_progress_with_goals_stated_in_the_conversation():
+    async def run():
+        async with Client(create_server(SAMPLES)) as client:
+            return await client.call_tool(
+                "goal_progress",
+                {
+                    "timezone": "America/Sao_Paulo",
+                    "as_of": "2026-11-19",
+                    "goals": [{"metric": "avg_pace", "target": "5:25", "id": "faster"}],
+                    "history": 1,
+                },
+            )
+
+    data = _structured(asyncio.run(run()))
+    (g,) = data["goals"]
+    assert (g["id"], g["status"], g["actual_display"]) == ("faster", "in_progress", "5:30 /km")
+    assert g["history"][0]["status"] == "not_met"
 
 
 def test_invalid_argument_is_a_tool_error():

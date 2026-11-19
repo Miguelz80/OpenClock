@@ -94,7 +94,52 @@ The previous week (2026-11-09 to 2026-11-15) holds `garmin_run_2026-11-10.fit` (
 
 `--period month` compares November with October. Months can differ in length, and the output says so in its notes. A custom `--start/--end` range is compared with the same number of days right before it.
 
-## 5. Use it from an AI assistant (MCP)
+## 5. Goals
+
+[`samples/goals.toml`](../samples/goals.toml) holds four synthetic goals. Evaluate them as of the end of Thursday 2026-11-19:
+
+```bash
+openclock goals --data-dir samples --timezone America/Sao_Paulo --as-of 2026-11-19 --history 1
+```
+
+```text
+Goals as of end of 2026-11-19 (America/Sao_Paulo) · from: goals.toml
+
+weekly-distance: Run 20 km per week (target 20.00 km per week, running, combined)
+  2026-11-16 to 2026-11-22 · 57% elapsed · ON TRACK
+  actual 13.44 km (67.2% of target) · expected by now 11.43 km · remaining 6.56 km in 3 day(s)
+  previous: 2026-11-09: 10.60 km (NOT MET)
+
+weekly-runs: Run 3 times per week (target 3 per week, running, combined)
+  2026-11-16 to 2026-11-22 · 57% elapsed · ON TRACK
+  actual 2 (66.7% of target) · expected by now 1.71 workouts · remaining 1 workouts in 3 day(s)
+  previous: 2026-11-09: 2 (NOT MET)
+
+weekly-pace: Average 5:35 /km or faster (target 5:35 /km per week, running, combined)
+  2026-11-16 to 2026-11-22 · 57% elapsed · MET
+  actual 5:30 /km
+  previous: 2026-11-09: 5:38 /km (NOT MET)
+
+monthly-long-run: One 10 km run per month (target 10.00 km per month, running, combined)
+  2026-11-01 to 2026-11-30 · 63% elapsed · IN PROGRESS
+  actual 8.42 km (84.2% of target)
+  previous: 2026-10-01: unavailable (NO DATA)
+```
+
+How to read and check it:
+
+| Goal | Calculation | Status |
+|---|---|---|
+| 20 km / week | 4 of 7 days elapsed, so expected 20 × 4/7 = 11.43 km; actual 8.42 + 5.02 = 13.44 km ≥ 11.43 | `on_track` |
+| 3 runs / week | expected 3 × 4/7 = 1.71; actual 2 | `on_track` |
+| pace ≤ 5:35 / week | 4435 s ÷ 13.44 km = 5:30 ≤ 5:35 | `met` (already) |
+| one 10 km run / month | longest November run 8.42 km < 10 | `in_progress` |
+
+Try `--as-of 2026-11-18`: Thursday's run has not happened yet, so the distance goal is `behind` (8.42 km < 20 × 3/7 = 8.57 km). Try `--as-of 2026-11-22`: the week is over, and the distance and run-count goals are `not_met`. The previous week before 2026-11-09 shows `NO DATA`, because nothing imported is that old. That is different from a week with zero runs.
+
+An assistant can then suggest an adjustment tied to the goal and to these numbers. For example: "You need 6.56 km in 3 days to reach 20 km; last week you ran 10.60 km, so one extra easy run could close the gap." The numbers come from the tool. The suggestion is the assistant's, and it should present it as an option.
+
+## 6. Use it from an AI assistant (MCP)
 
 Start the server over stdio:
 
@@ -104,7 +149,7 @@ openclock-mcp --data-dir samples --timezone America/Sao_Paulo
 
 To connect it to an MCP client, see [docs/mcp.md](mcp.md). The client then calls `summarize_period` and answers in plain language with the same numbers as above.
 
-## 6. Re-import and duplicates
+## 7. Re-import and duplicates
 
 - **Re-importing** a file, or dropping a renamed copy into the data folder, does not change any total. Workouts are keyed by a stable ID (see [architecture](architecture.md#2-normalized-record)).
 - **Same run on two devices:** copy the Garmin sample into a new folder with an Apple export of the same run, and the combined total is withheld:
@@ -125,7 +170,7 @@ openclock summary --data-dir /tmp/openclock-dup --timezone America/Sao_Paulo --w
 
 The first command lists the pair under "Possible duplicates" and prints `combined withheld`. The second keeps the Garmin record and reports 8.42 km.
 
-## 7. Run the tests
+## 8. Run the tests
 
 ```bash
 pytest
