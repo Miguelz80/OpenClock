@@ -1,0 +1,43 @@
+# --- Personal health data: never commit real exports -------------------------
+# Apple Health export ("Export All Health Data") and its archive
+export.xml
+export_cda.xml
+export.zip
+apple_health_export/
+# Garmin Connect exports and device dumps
+*.fit
+*.FIT
+*.gpx
+*.tcx
+# Synthetic samples are the only FIT/XML files allowed in the repository
+!samples/**/*.fit
+# Local working data
+data/
+.openclock/
+
+# --- Secrets -----------------------------------------------------------------
+.env
+.env.*
+*.pem
+*.key
+secrets/
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Editors / OS ------------------------------------------------------------
+.idea/
+.vscode/
+.DS_Store
