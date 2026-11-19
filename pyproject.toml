@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "defusedxml>=0.7",
     "garmin-fit-sdk>=21.0",
+    "mcp>=2.3,<3",
     "tzdata; sys_platform == 'win32'",
 ]
 
@@ -28,6 +29,10 @@ dev = [
     "pytest>=8",
     "ruff>=0.6",
 ]
+
+[project.scripts]
+openclock = "openclock.cli:main"
+openclock-mcp = "openclock.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/Miguelz80/OpenClock"

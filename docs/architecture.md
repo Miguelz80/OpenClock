@@ -81,12 +81,14 @@ Records are stored by `(source, source_id)`, so a second import of the same data
 
 ### 4. MCP server
 
-Read-only tools, documented in [docs/mcp.md](mcp.md) once implemented:
+Read-only tools, documented in [docs/mcp.md](mcp.md):
 
 - `list_workouts`: workouts in a period, with source and missing metrics.
 - `summarize_period`: totals per source for a week or a custom date range, possible duplicates, and a combined total only when it is safe.
 
 The assistant is instructed to use these tools as the source of every number, state the period and source, and point out missing or stale data.
+
+The tools are thin wrappers around `openclock.service`, which the CLI also uses and future chat channels will use. Every interface therefore returns identical numbers. `openclock.library` scans a data folder, re-parses only changed files and rebuilds the store, so dropping a new export into the folder is enough.
 
 ### 5. Channels (later milestones)
 
@@ -97,7 +99,7 @@ The assistant is instructed to use these tools as the source of every number, st
 
 See [ADR 0003](adr/0003-channel-strategy.md) for why Telegram is the pilot channel and WhatsApp comes later.
 
-## Repository layout (target)
+## Repository layout
 
 ```
 src/openclock/
@@ -109,8 +111,10 @@ src/openclock/
     fit.py             # Garmin FIT
     apple_health.py    # Apple Health export.xml
   synthetic.py         # generator for synthetic sample files
+  report.py            # JSON views, units and rounding
   library.py           # loads a data directory into the store
-  mcp_server.py        # MCP tools
+  service.py           # read-only queries shared by MCP, CLI and channels
+  mcp_server.py        # MCP tools (stdio)
   cli.py               # command-line checks
 samples/               # synthetic files used by the demo
 tests/

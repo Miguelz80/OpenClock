@@ -31,6 +31,10 @@ CI runs the same commands on Python 3.11, 3.12 and 3.13 for every pull request (
 | Garmin FIT importer | `tests/test_importer_fit.py` | The committed sample matches the generator; meters and seconds keep FIT precision; re-imports and renamed copies keep the same IDs; missing distance or duration is `None`; multisport files give one workout per session; corrupted or non-FIT files are rejected. |
 | Apple Health importer | `tests/test_importer_apple.py` | The committed sample matches the generator; `km`/`mi`/`m`/`yd` and `min`/`s`/`hr` are converted; both the `WorkoutStatistics` and legacy `totalDistance` formats are read; `.zip` exports work; unknown units become unavailable with a warning; malformed XML and entity-expansion attacks are rejected. |
 | Report | `tests/test_report.py` | Units (km, `H:MM:SS`) and `unavailable` markers in output. |
+| Library | `tests/test_library.py` | A data folder with copies of the same files yields the same workouts; new and deleted files are picked up; unchanged files are not re-parsed; broken files are reported without stopping the import. |
+| Service | `tests/test_service.py` | **The milestone question** answered from `samples/` (8.42 km + 5.02 km = 13.44 km); UTC vs São Paulo week boundaries; assumed time zone, missing source and outdated data appear in `notes`; duplicates across devices withhold the combined total; invalid arguments are rejected. |
+| MCP server | `tests/test_mcp_server.py` | Both tools are listed as read-only; calls return the expected structured data in-process and through a real `openclock-mcp` stdio subprocess; bad arguments become tool errors. |
+| CLI | `tests/test_cli.py` | Table and `--json` output, `list` filtering, sample regeneration and error exit codes. |
 
 ## Writing tests
 

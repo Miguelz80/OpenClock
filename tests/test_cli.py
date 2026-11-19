@@ -1,0 +1,41 @@
+import json
+from pathlib import Path
+
+from openclock.cli import main
+
+SAMPLES = str(Path(__file__).parent.parent / "samples")
+BASE = ["--data-dir", SAMPLES, "--timezone", "America/Sao_Paulo", "--week-of", "2026-11-18"]
+
+
+def test_summary_table(capsys):
+    assert main(["summary", *BASE]) == 0
+    out = capsys.readouterr().out
+    assert "Week 2026-11-16 to 2026-11-22 (America/Sao_Paulo)" in out
+    assert "8.42 km" in out and "5.02 km" in out and "13.44 km" in out
+    assert "1:13:55" in out
+
+
+def test_summary_json_matches_mcp_output(capsys):
+    assert main(["summary", *BASE, "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["combined"]["distance_km"] == 13.44
+
+
+def test_list(capsys):
+    assert main(["list", *BASE, "--source", "apple_health"]) == 0
+    out = capsys.readouterr().out
+    assert "apple_health_export_sample.xml" in out
+    assert "garmin_run" not in out
+
+
+def test_samples_command(tmp_path, capsys):
+    assert main(["samples", str(tmp_path)]) == 0
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "apple_health_export_sample.xml",
+        "garmin_run_2026-11-17.fit",
+    ]
+
+
+def test_error_exit_code(capsys):
+    assert main(["summary", "--data-dir", SAMPLES, "--timezone", "Nowhere/City"]) == 2
+    assert "Unknown time zone" in capsys.readouterr().err
