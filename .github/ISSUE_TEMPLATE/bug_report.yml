@@ -1,0 +1,28 @@
+name: Bug report
+description: Something OpenClock does wrong, such as a wrong total, a failed import or an error
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach real Garmin or Apple Health exports, GPS routes or tokens.**
+        Reproduce the problem with a synthetic file if you can (see `openclock.synthetic`).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command or question, what you got, and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Steps, a synthetic sample, or the exact command (e.g. `openclock summary --data-dir samples --timezone America/Sao_Paulo`).
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Environment
+      description: OS, Python version, and how you run OpenClock (CLI, MCP client name, Telegram bot).

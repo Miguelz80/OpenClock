@@ -115,7 +115,7 @@ See [docs/architecture.md](docs/architecture.md) for the full system design and 
 
 ## Privacy
 
-Use synthetic data in examples, tests and issues. Keep credentials, GPS routes and personal exports from Garmin Connect or Apple Health out of the repository; the [`.gitignore`](.gitignore) blocks the usual file names. In a messaging pilot, share only the metrics needed for the requested report.
+Use synthetic data in examples, tests and issues. Keep credentials, GPS routes and personal exports from Garmin Connect or Apple Health out of the repository; the [`.gitignore`](.gitignore) blocks the usual file names. In a messaging pilot, share only the metrics needed for the requested report. Report security or privacy problems privately, as described in [SECURITY.md](SECURITY.md).
 
 ## Contributing
 
