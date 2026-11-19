@@ -16,28 +16,58 @@ openclock-mcp --data-dir /path/to/exports --timezone America/Sao_Paulo
 
 The folder is re-scanned on every call. Files are re-parsed only when their size or modification time changes, so new exports can be dropped in while the server runs.
 
-## Connecting a client
+## Mode A: install in your own AI app
 
-Use absolute paths. Example for clients configured with an `mcpServers` JSON block, such as Claude Desktop:
+Mode A runs OpenClock on your computer and plugs it into an AI app you already use. Your workout files never leave your machine, except the numbers the app sends to its own model. OpenClock costs nothing to run this way.
 
-```json
-{
-  "mcpServers": {
-    "openclock": {
-      "command": "/absolute/path/to/OpenClock/.venv/bin/openclock-mcp",
-      "args": ["--data-dir", "/absolute/path/to/OpenClock/samples", "--timezone", "America/Sao_Paulo"]
-    }
-  }
-}
-```
+1. **Install** (Python 3.11+):
 
-Claude Code:
+   ```bash
+   git clone https://github.com/Miguelz80/OpenClock.git
+   cd OpenClock
+   python -m venv .venv
+   source .venv/bin/activate          # Windows: .venv\Scripts\activate
+   python -m pip install -e .
+   ```
 
-```bash
-claude mcp add openclock -- /absolute/path/to/OpenClock/.venv/bin/openclock-mcp --data-dir /absolute/path/to/OpenClock/samples --timezone America/Sao_Paulo
-```
+2. **Put your exports in a folder**, e.g. `~/openclock-data`: `.fit` files from Garmin Connect, and `export.xml` or `export.zip` from the Health app. You can add a `goals.toml` (see [`samples/goals.toml`](../samples/goals.toml)). To try it first, use the `samples/` folder.
 
-> The server is tested over stdio with the SDK's own client (`tests/test_mcp_server.py::test_stdio_server_end_to_end`). It has **not yet been tried in a specific desktop app**; please report results in an issue.
+3. **Check that it works**:
+
+   ```bash
+   openclock summary --data-dir ~/openclock-data --timezone America/Sao_Paulo
+   ```
+
+4. **Connect your AI app** (use absolute paths):
+
+   - **Claude Desktop:** Settings → Developer → Edit Config, then add:
+
+     ```json
+     {
+       "mcpServers": {
+         "openclock": {
+           "command": "/absolute/path/to/OpenClock/.venv/bin/openclock-mcp",
+           "args": ["--data-dir", "/absolute/path/to/openclock-data", "--timezone", "America/Sao_Paulo"]
+         }
+       }
+     }
+     ```
+
+     On Windows the command is `C:\\path\\to\\OpenClock\\.venv\\Scripts\\openclock-mcp.exe` (backslashes are doubled inside JSON). Restart the app.
+
+   - **Claude Code:**
+
+     ```bash
+     claude mcp add openclock -- /absolute/path/to/OpenClock/.venv/bin/openclock-mcp --data-dir /absolute/path/to/openclock-data --timezone America/Sao_Paulo
+     ```
+
+   - **Other apps:** any MCP client that can launch a local **stdio** server works with the same command and arguments.
+
+5. **Ask**: "Quanto corri nesta semana em cada fonte?", "Como mudei desde a semana passada?", "Qual meta ficou pendente?"
+
+> The server is tested over stdio with the official SDK client (`tests/test_mcp_server.py::test_stdio_server_end_to_end`). It has **not yet been tried in a specific desktop app**; please report results in an issue.
+
+If you'd rather not install anything, the [Telegram bot](telegram.md) (Mode B) uses the same tools.
 
 ## Tools
 

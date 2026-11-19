@@ -7,7 +7,7 @@ Requires Python 3.11 or newer.
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev]"   # includes the bot dependencies used in tests
 ```
 
 ## Run the checks
@@ -35,6 +35,8 @@ CI runs the same commands on Python 3.11, 3.12 and 3.13 for every pull request (
 | Library | `tests/test_library.py` | A data folder with copies of the same files yields the same workouts; new and deleted files are picked up; unchanged files are not re-parsed; broken files are reported without stopping the import. |
 | Service | `tests/test_service.py` | **The milestone questions** answered from `samples/`: 8.42 km + 5.02 km = 13.44 km this week, and +2.84 km (+26.8%), 8 s/km faster than last week, and goal progress from `samples/goals.toml`; month summary and comparison; inline goals override the file; UTC vs São Paulo week boundaries; assumed time zone, missing source and outdated data appear in `notes`; duplicates across devices withhold the combined total; invalid arguments are rejected. |
 | MCP server | `tests/test_mcp_server.py` | Both tools are listed as read-only; calls return the expected structured data in-process and through a real `openclock-mcp` stdio subprocess; bad arguments become tool errors. |
+| Assistant | `tests/test_assistant.py` | With a scripted fake Claude client: questions are answered through the real MCP tools (tool results carry the sample totals); request settings (model, effort, fallbacks, caching, no `thinking` param); thinking blocks passed back unchanged; append-only history; tool errors returned as `is_error`; refusals; bounded tool loop; model and effort configurable. |
+| Telegram | `tests/test_telegram.py` | With a mock Bot API: commands answered without AI (pt-BR and English); chats outside the pilot get no data; free-form questions keep history and log usage without text or chat id; `/novo` and the 20-question restart; weekly push covers the previous week; polling offsets; errors never leak the token; config validation; usage cost summary. |
 | CLI | `tests/test_cli.py` | Table and `--json` output, `list` filtering, sample regeneration and error exit codes. |
 
 ## Writing tests

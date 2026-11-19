@@ -103,14 +103,15 @@ The assistant is instructed to use these tools as the source of every number, st
 
 The tools are thin wrappers around `openclock.service`, which the CLI also uses and future chat channels will use. Every interface therefore returns identical numbers. `openclock.library` scans a data folder, re-parses only changed files and rebuilds the store, so dropping a new export into the folder is enough.
 
-### 5. Channels (later milestones)
+### 5. Channels
 
 | Mode | How it works | Who pays for AI | Messaging cost |
 |---|---|---|---|
-| A. Bring your own AI | User adds the OpenClock MCP server to Claude Desktop, ChatGPT or another MCP client | User's existing subscription | None |
-| B. Messaging bot | OpenClock runs a bot that calls an LLM with the MCP tools | Operator | Telegram: none. WhatsApp: per template message outside the 24h window |
+| A. Bring your own AI | User installs OpenClock and adds `openclock-mcp` to Claude Desktop, Claude Code or another MCP client ([guide](mcp.md#mode-a-install-in-your-own-ai-app)) | User's existing subscription | None |
+| B. Telegram bot | `openclock-telegram`: commands answered without AI; free-form questions answered by Claude with the same MCP tools ([guide](telegram.md)) | Operator, per free-form question | None on Telegram |
+| B'. WhatsApp (later) | Same assistant and report text, official Cloud API transport | Operator | Per template message outside the 24h window |
 
-See [ADR 0003](adr/0003-channel-strategy.md) for why Telegram is the pilot channel and WhatsApp comes later.
+`openclock.assistant` connects to the MCP server **in-process**, so Mode A and Mode B use identical tools. `openclock.channels.messages` formats reports in pt-BR or English from `openclock.service` results, and `openclock.channels.telegram` adds transport, the allowlist of pilot chats and usage logging. See [ADR 0003](adr/0003-channel-strategy.md) and [ADR 0009](adr/0009-telegram-bot.md).
 
 ## Repository layout
 
@@ -130,6 +131,10 @@ src/openclock/
   service.py           # read-only queries shared by MCP, CLI and channels
   mcp_server.py        # MCP tools (stdio)
   cli.py               # command-line checks
+  assistant.py         # Claude tool loop over the in-process MCP tools (Mode B)
+  channels/
+    messages.py        # report text for chats (pt-BR / English), no AI
+    telegram.py        # Telegram bot: polling, commands, weekly push, usage log
 samples/               # synthetic files used by the demo
 tests/
 docs/

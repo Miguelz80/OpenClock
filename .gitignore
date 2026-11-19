@@ -41,3 +41,7 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+# Telegram pilot configuration and usage log (contain chat ids)
+telegram.toml
+openclock-usage.jsonl

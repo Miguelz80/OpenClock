@@ -1,0 +1,12 @@
+# Example pilot configuration for `openclock-telegram`. Copy it to telegram.toml (which is
+# git-ignored) and replace the values. Each [[user]] is one Telegram chat allowed to use the bot,
+# with its own data folder. Secrets (bot token, Anthropic API key) go in environment variables,
+# never in this file.
+
+[[user]]
+name = "demo"                 # label for the operator only
+chat_id = 100000001           # fictional; the bot tells unknown chats their id
+data_dir = "."                # relative to this file: the synthetic samples
+timezone = "America/Sao_Paulo"
+language = "pt"               # pt | en
+weekly_report = true          # included in `openclock-telegram send-weekly`
