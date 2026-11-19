@@ -29,10 +29,14 @@ dependencies = [
 bot = [
     "anthropic>=2.10,<3",
     "httpx2>=2.10",
+    "starlette>=0.48",
+    "uvicorn>=0.31",
 ]
 dev = [
     "anthropic>=2.10,<3",
     "httpx2>=2.10",
+    "starlette>=0.48",
+    "uvicorn>=0.31",
     "pytest>=8",
     "ruff>=0.6",
 ]
@@ -41,6 +45,7 @@ dev = [
 openclock = "openclock.cli:main"
 openclock-mcp = "openclock.mcp_server:main"
 openclock-telegram = "openclock.channels.telegram:main"
+openclock-whatsapp = "openclock.channels.whatsapp:main"
 
 [project.urls]
 Homepage = "https://github.com/Miguelz80/OpenClock"

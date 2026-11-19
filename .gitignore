@@ -42,6 +42,7 @@ htmlcov/
 .vscode/
 .DS_Store
 
-# Telegram pilot configuration and usage log (contain chat ids)
+# Chat pilot configuration and usage log (contain chat ids / phone numbers)
 telegram.toml
+whatsapp.toml
 openclock-usage.jsonl

@@ -58,12 +58,12 @@ Every number can be traced to a field in [`samples/`](samples/). The [demo guide
 
 ## Two ways to use it
 
-| | Mode A: your own AI app | Mode B: Telegram bot |
+| | Mode A: your own AI app | Mode B: Telegram or WhatsApp bot |
 |---|---|---|
-| For | People who already use Claude Desktop, Claude Code or another MCP client | Anyone with Telegram |
-| Setup | Install OpenClock, then add `openclock-mcp` to the app ([guide](docs/mcp.md#mode-a-install-in-your-own-ai-app)) | An operator runs `openclock-telegram` ([guide](docs/telegram.md)) |
+| For | People who already use Claude Desktop, Claude Code or another MCP client | Anyone with Telegram or WhatsApp |
+| Setup | Install OpenClock, then add `openclock-mcp` to the app ([guide](docs/mcp.md#mode-a-install-in-your-own-ai-app)) | An operator runs `openclock-telegram` ([guide](docs/telegram.md)) or `openclock-whatsapp` on the official Cloud API ([guide](docs/whatsapp.md)) |
 | Data | Stays on your computer | In the operator's data folders |
-| AI cost | Your existing subscription | Paid by the operator, per free-form question; reports and the weekly push use no AI |
+| AI cost | Your existing subscription | Paid by the operator, per free-form question; reports and the weekly push use no AI (on WhatsApp the weekly template is billed by Meta) |
 
 Both modes use the same MCP tools, so they give the same numbers.
 
@@ -85,7 +85,7 @@ flowchart LR
     D --> K["Metrics core · totals, periods, duplicates"]
     K --> M["MCP server · read-only tools"]
     M --> C1["Mode A · your own AI app<br/>(Claude Desktop, ChatGPT…)"]
-    M --> C2["Mode B · Telegram bot<br/>(WhatsApp later)"]
+    M --> C2["Mode B · Telegram / WhatsApp bot"]
 ```
 
 - **Importers** read files exported by each platform and convert them into one common record, keeping the original source.
@@ -103,7 +103,7 @@ See [docs/architecture.md](docs/architecture.md) for the full system design and 
 | 1. Local MCP demo | Synthetic FIT and Apple Health samples, normalization, weekly totals per source, duplicate flagging, tests | Done (local, synthetic data) |
 | 2. Comparisons and goals | Average pace, week/month comparison with the previous equivalent period, progress towards user goals | Done (local, synthetic data) |
 | 3. Messaging pilot | Telegram bot with weekly report, commands and free-form questions; cost logging | Bot implemented and tested with mocks; pilot with real users next |
-| 4. Automatic sync | Garmin API (if access is granted), iOS app or Shortcut for Apple Health, official WhatsApp Business Platform | Under evaluation |
+| 4. Automatic sync and WhatsApp | Official WhatsApp Cloud API adapter; Garmin API (if access is granted); iOS app or Shortcut for Apple Health | WhatsApp adapter implemented and tested with mocks (launch checklist pending); sync under evaluation |
 
 ## Data sources at a glance
 

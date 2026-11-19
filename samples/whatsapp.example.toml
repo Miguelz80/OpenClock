@@ -1,0 +1,20 @@
+# Example configuration for `openclock-whatsapp`. Copy it to whatsapp.toml (git-ignored) and
+# replace the values. Secrets (access token, app secret, verify token, Anthropic API key) go in
+# environment variables, never in this file.
+
+[whatsapp]
+phone_number_id = "100000000000001"     # fictional; from WhatsApp Manager > API setup
+graph_version = "v23.0"                  # use the Graph API version shown in your Meta app
+weekly_template = "openclock_weekly_report"
+
+[whatsapp.template_language]            # template language code per user language
+pt = "pt_BR"
+en = "en_US"
+
+[[user]]
+name = "demo"
+wa_id = "5511900000001"                  # fictional; country code + number, digits only
+data_dir = "."                           # relative to this file: the synthetic samples
+timezone = "America/Sao_Paulo"
+language = "pt"
+weekly_report = true

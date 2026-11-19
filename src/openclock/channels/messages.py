@@ -28,23 +28,24 @@ TEXT: dict[str, dict[str, str]] = {
         "notes": "Observações",
         "help": (
             "OpenClock: seus treinos do Garmin e do Apple Watch.\n"
-            "/semana - resumo da semana\n"
-            "/comparar - comparação com a semana anterior\n"
-            "/metas - progresso das metas\n"
-            "/novo - começar uma conversa nova\n"
-            "/privacidade - quais dados são usados\n"
+            "{p}semana - resumo da semana\n"
+            "{p}comparar - comparação com a semana anterior\n"
+            "{p}metas - progresso das metas\n"
+            "{p}novo - começar uma conversa nova\n"
+            "{p}privacidade - quais dados são usados\n"
             'Ou pergunte em texto livre, por exemplo: "quanto corri esta semana?"'
         ),
         "privacy": (
             "Privacidade: este bot lê só os arquivos de treino que o operador configurou para "
             "você. Perguntas em texto livre são enviadas, com os números dos seus treinos, à "
             "API do Claude (Anthropic) para gerar a resposta. A conversa fica só na memória do "
-            "bot e é apagada com /novo ou quando o bot reinicia. Para apagar seus arquivos, "
-            "peça ao operador. Dúvidas sobre dor ou lesão: procure um profissional de saúde."
+            "bot e é apagada com o comando novo ou quando o bot reinicia. Para apagar seus "
+            "arquivos, peça ao operador. Dúvidas sobre dor ou lesão: procure um profissional "
+            "de saúde."
         ),
         "not_allowed": (
-            "Este bot é um piloto privado do OpenClock. Peça ao operador para incluir este "
-            "chat (id {chat_id}) na configuração."
+            "Este bot é um piloto privado do OpenClock. Peça ao operador para incluir esta "
+            "conversa (id {chat_id}) na configuração."
         ),
         "new_conversation": "Conversa reiniciada.",
         "conversation_reset": "(A conversa anterior ficou longa e foi reiniciada.)",
@@ -78,23 +79,23 @@ TEXT: dict[str, dict[str, str]] = {
         "notes": "Notes",
         "help": (
             "OpenClock: your Garmin and Apple Watch workouts.\n"
-            "/week - this week's summary\n"
-            "/compare - comparison with last week\n"
-            "/goals - goal progress\n"
-            "/new - start a new conversation\n"
-            "/privacy - what data is used\n"
+            "{p}week - this week's summary\n"
+            "{p}compare - comparison with last week\n"
+            "{p}goals - goal progress\n"
+            "{p}new - start a new conversation\n"
+            "{p}privacy - what data is used\n"
             'Or ask in plain text, for example: "how far did I run this week?"'
         ),
         "privacy": (
             "Privacy: this bot only reads the workout files the operator set up for you. "
             "Free-form questions are sent, together with your workout numbers, to the Claude API "
             "(Anthropic) to write the answer. The conversation is kept only in the bot's memory "
-            "and is cleared with /new or when the bot restarts. To delete your files, ask the "
-            "operator. Questions about pain or injury: see a health professional."
+            "and is cleared with the new command or when the bot restarts. To delete your files, "
+            "ask the operator. Questions about pain or injury: see a health professional."
         ),
         "not_allowed": (
-            "This bot is a private OpenClock pilot. Ask the operator to add this chat "
-            "(id {chat_id}) to the configuration."
+            "This bot is a private OpenClock pilot. Ask the operator to add this "
+            "conversation (id {chat_id}) to the configuration."
         ),
         "new_conversation": "Conversation restarted.",
         "conversation_reset": "(The previous conversation got long and was restarted.)",
