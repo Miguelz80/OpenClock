@@ -4,7 +4,7 @@
 
 OpenClock brings workout data from Garmin Connect and Apple Watch (Apple Health) into AI assistants through the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). An assistant such as Claude or ChatGPT can query your workouts, produce reports and explain your progress in plain language, using numbers calculated by OpenClock rather than guessed by the model.
 
-> **Status:** early prototype. Milestone 1 works locally on synthetic sample files: import a Garmin `.fit` and an Apple Health `export.xml`, and get weekly totals per source through the MCP server or the CLI (tested over stdio with the official MCP SDK client; not yet tried in a desktop AI app). Automatic sync with Garmin or Apple and a messaging channel (Telegram or WhatsApp) are still being evaluated.
+> **Status:** early prototype. Milestones 1 and 2 work locally on synthetic sample files, and the milestone 3 Telegram bot is implemented but not yet piloted. Milestone 1: import a Garmin `.fit` and an Apple Health `export.xml`, and get weekly totals per source through the MCP server or the CLI (tested over stdio with the official MCP SDK client; not yet tried in a desktop AI app). Automatic sync with Garmin or Apple and a messaging channel (Telegram or WhatsApp) are still being evaluated.
 
 ## Quickstart
 
@@ -54,7 +54,18 @@ weekly-distance: Run 20 km per week (target 20.00 km per week, running, combined
 ...
 ```
 
-Every number can be traced to a field in [`samples/`](samples/). The [demo guide](docs/demo.md) shows how to check each one by hand. To use OpenClock from an AI assistant, run `openclock-mcp --data-dir <folder> --timezone <zone>` and add it to your MCP client ([docs/mcp.md](docs/mcp.md)).
+Every number can be traced to a field in [`samples/`](samples/). The [demo guide](docs/demo.md) shows how to check each one by hand.
+
+## Two ways to use it
+
+| | Mode A: your own AI app | Mode B: Telegram bot |
+|---|---|---|
+| For | People who already use Claude Desktop, Claude Code or another MCP client | Anyone with Telegram |
+| Setup | Install OpenClock, then add `openclock-mcp` to the app ([guide](docs/mcp.md#mode-a-install-in-your-own-ai-app)) | An operator runs `openclock-telegram` ([guide](docs/telegram.md)) |
+| Data | Stays on your computer | In the operator's data folders |
+| AI cost | Your existing subscription | Paid by the operator, per free-form question; reports and the weekly push use no AI |
+
+Both modes use the same MCP tools, so they give the same numbers.
 
 ## Questions OpenClock aims to answer
 
@@ -74,7 +85,7 @@ flowchart LR
     D --> K["Metrics core · totals, periods, duplicates"]
     K --> M["MCP server · read-only tools"]
     M --> C1["Mode A · your own AI app<br/>(Claude Desktop, ChatGPT…)"]
-    M --> C2["Mode B · messaging bot<br/>(Telegram pilot → WhatsApp)"]
+    M --> C2["Mode B · Telegram bot<br/>(WhatsApp later)"]
 ```
 
 - **Importers** read files exported by each platform and convert them into one common record, keeping the original source.
@@ -91,7 +102,7 @@ See [docs/architecture.md](docs/architecture.md) for the full system design and 
 |---|---|---|
 | 1. Local MCP demo | Synthetic FIT and Apple Health samples, normalization, weekly totals per source, duplicate flagging, tests | Done (local, synthetic data) |
 | 2. Comparisons and goals | Average pace, week/month comparison with the previous equivalent period, progress towards user goals | Done (local, synthetic data) |
-| 3. Messaging pilot | Weekly summary and follow-up questions in Telegram | Planned |
+| 3. Messaging pilot | Telegram bot with weekly report, commands and free-form questions; cost logging | Bot implemented and tested with mocks; pilot with real users next |
 | 4. Automatic sync | Garmin API (if access is granted), iOS app or Shortcut for Apple Health, official WhatsApp Business Platform | Under evaluation |
 
 ## Data sources at a glance
