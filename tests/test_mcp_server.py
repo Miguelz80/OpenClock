@@ -22,7 +22,7 @@ def test_tools_are_listed_as_read_only():
             return (await client.list_tools()).tools
 
     tools = {t.name: t for t in asyncio.run(run())}
-    assert set(tools) == {"list_workouts", "summarize_period"}
+    assert set(tools) == {"list_workouts", "summarize_period", "compare_periods"}
     for tool in tools.values():
         assert tool.annotations.read_only_hint is True
         assert "timezone" in tool.input_schema["properties"]
@@ -46,6 +46,22 @@ def test_list_workouts_over_mcp():
 
     data = _structured(asyncio.run(run()))
     assert data["workout_count"] == 2
+
+
+def test_compare_periods_over_mcp():
+    async def run():
+        async with Client(create_server(SAMPLES)) as client:
+            return await client.call_tool("compare_periods", ARGS)
+
+    data = _structured(asyncio.run(run()))
+    combined = data["changes"]["combined"]
+    assert combined["distance_km"] == {
+        "current": 13.44,
+        "previous": 10.6,
+        "change": 2.84,
+        "change_pct": 26.8,
+    }
+    assert combined["avg_pace"]["direction"] == "faster"
 
 
 def test_invalid_argument_is_a_tool_error():

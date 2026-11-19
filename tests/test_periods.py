@@ -2,7 +2,13 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
-from openclock.periods import date_range, resolve_timezone, week_containing
+from openclock.periods import (
+    date_range,
+    month_containing,
+    previous_equivalent,
+    resolve_timezone,
+    week_containing,
+)
 
 
 def test_week_runs_monday_to_monday_in_local_time():
@@ -60,3 +66,35 @@ def test_date_range_rejects_reversed_dates():
 def test_unknown_time_zone(name):
     with pytest.raises(ValueError):
         resolve_timezone(name)
+
+
+def test_month_containing():
+    month = month_containing(date(2026, 2, 14), "America/Sao_Paulo")
+    assert month.kind == "month"
+    assert (month.first_day, month.last_day, month.days) == (
+        date(2026, 2, 1),
+        date(2026, 2, 28),
+        28,
+    )
+    december = month_containing(date(2026, 12, 31), "UTC")
+    assert december.end.isoformat() == "2027-01-01T00:00:00+00:00"
+
+
+def test_previous_week():
+    prev = previous_equivalent(week_containing(date(2026, 11, 18), "America/Sao_Paulo"))
+    assert (prev.kind, prev.first_day, prev.last_day) == (
+        "week",
+        date(2026, 11, 9),
+        date(2026, 11, 15),
+    )
+
+
+def test_previous_month_across_year_boundary():
+    prev = previous_equivalent(month_containing(date(2026, 1, 10), "UTC"))
+    assert (prev.first_day, prev.last_day, prev.days) == (date(2025, 12, 1), date(2025, 12, 31), 31)
+
+
+def test_previous_custom_range_has_the_same_length():
+    current = date_range(date(2026, 11, 10), date(2026, 11, 19), "UTC")  # 10 days
+    prev = previous_equivalent(current)
+    assert (prev.first_day, prev.last_day, prev.days) == (date(2026, 10, 31), date(2026, 11, 9), 10)

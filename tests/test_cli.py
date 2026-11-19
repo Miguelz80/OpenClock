@@ -32,6 +32,7 @@ def test_samples_command(tmp_path, capsys):
     assert main(["samples", str(tmp_path)]) == 0
     assert sorted(p.name for p in tmp_path.iterdir()) == [
         "apple_health_export_sample.xml",
+        "garmin_run_2026-11-10.fit",
         "garmin_run_2026-11-17.fit",
     ]
 
@@ -39,3 +40,16 @@ def test_samples_command(tmp_path, capsys):
 def test_error_exit_code(capsys):
     assert main(["summary", "--data-dir", SAMPLES, "--timezone", "Nowhere/City"]) == 2
     assert "Unknown time zone" in capsys.readouterr().err
+
+
+def test_compare_table(capsys):
+    assert main(["compare", *BASE]) == 0
+    out = capsys.readouterr().out
+    assert "Week 2026-11-16 to 2026-11-22 vs 2026-11-09 to 2026-11-15" in out
+    assert "+2.84 km (+26.8%)" in out
+    assert "8 s/km faster" in out
+
+
+def test_month_period_flag(capsys):
+    assert main(["summary", *BASE, "--period", "month"]) == 0
+    assert "Month 2026-11-01 to 2026-11-30" in capsys.readouterr().out

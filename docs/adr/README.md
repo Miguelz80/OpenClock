@@ -10,5 +10,6 @@ Each ADR records one decision: the context, what was decided, and its consequenc
 | [0004](0004-data-sources.md) | Manual file import first; no Strava | Accepted |
 | [0005](0005-duplicates-and-time-zones.md) | Duplicate flagging and time-zone-aware periods | Accepted |
 | [0006](0006-branching.md) | One branch per area, merged through pull requests | Accepted |
+| [0007](0007-comparisons-and-pace.md) | Equivalent-period comparisons and distance-weighted pace | Accepted |
 
 To add one, copy [template.md](template.md), give it the next number, and include it in the pull request that implements the decision.

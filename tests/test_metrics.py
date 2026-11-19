@@ -3,9 +3,16 @@ from datetime import date
 import pytest
 from helpers import make_workout
 
-from openclock.metrics import DuplicatePolicy, find_possible_duplicates, summarize, totals
+from openclock.metrics import (
+    Delta,
+    DuplicatePolicy,
+    compare,
+    find_possible_duplicates,
+    summarize,
+    totals,
+)
 from openclock.models import Source, Sport
-from openclock.periods import week_containing
+from openclock.periods import month_containing, previous_equivalent, week_containing
 
 WEEK = week_containing(date(2026, 11, 18), "America/Sao_Paulo")
 
@@ -122,3 +129,61 @@ def test_prefer_policies_keep_one_record_per_pair(policy, kept_distance, exclude
     assert s.combined.workout_count == 2
     assert s.combined.distance_m == kept_distance + 4000
     assert [w.source for w in s.excluded_from_combined] == [excluded_source]
+
+
+# --- pace and comparisons ------------------------------------------------------------------
+
+
+def test_pace_is_total_time_over_total_distance_of_complete_workouts():
+    t = totals(
+        [
+            make_workout(duration_s=1500, distance_m=5000, source_id="a"),  # 5:00 /km
+            make_workout(duration_s=3600, distance_m=10000, source_id="b"),  # 6:00 /km
+            make_workout(duration_s=None, distance_m=3000, source_id="c"),  # no pace
+            make_workout(duration_s=900, distance_m=None, source_id="d"),  # no pace
+        ]
+    )
+    assert t.pace_s_per_km == pytest.approx((1500 + 3600) / 15)  # 340 s/km, not the mean 330
+    assert t.pace_workout_count == 2
+    assert t.longest_distance_m == 10000
+
+
+def test_pace_unavailable_without_complete_workouts():
+    t = totals([make_workout(distance_m=None), make_workout(distance_m=0.0, source_id="z")])
+    assert t.pace_s_per_km is None
+    assert t.pace_workout_count == 0
+
+
+def test_delta():
+    assert Delta(13440, 10600).change == 2840
+    assert Delta(13440, 10600).change_pct == pytest.approx(26.79, abs=0.01)
+    assert Delta(5, 0).change_pct is None
+    assert Delta(None, 10).change is None
+
+
+PREV_WEEK = previous_equivalent(WEEK)
+
+
+def test_compare_week_with_previous_week():
+    workouts = [
+        make_workout(Source.GARMIN, "2026-11-10T09:30:00+00:00", 2475, 7500),
+        make_workout(Source.GARMIN, "2026-11-17T09:30:00+00:00", 2710, 8420),
+    ]
+    c = compare(summarize(workouts, WEEK), summarize(workouts, PREV_WEEK))
+    garmin = c.by_source[Source.GARMIN]
+    assert garmin["distance_m"].change == pytest.approx(920)
+    assert garmin["pace_s_per_km"].change == pytest.approx(2710 / 8.42 - 330)
+    assert c.combined["workout_count"].change == 0
+
+
+def test_compare_withholds_combined_when_a_period_has_duplicates():
+    workouts = [GARMIN_RUN, APPLE_SAME_RUN]
+    c = compare(summarize(workouts, WEEK), summarize(workouts, PREV_WEEK))
+    assert c.combined is None
+    assert "current" in c.combined_withheld_reason
+
+
+def test_compare_rejects_different_kinds():
+    month = month_containing(date(2026, 11, 18), "America/Sao_Paulo")
+    with pytest.raises(ValueError, match="same kind"):
+        compare(summarize([], WEEK), summarize([], month))

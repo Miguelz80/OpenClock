@@ -1,6 +1,6 @@
 # MCP server
 
-`openclock-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) server that runs over **stdio** and exposes two **read-only** tools. It is built on the official MCP Python SDK (v2, `MCPServer`).
+`openclock-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) server that runs over **stdio** and exposes **read-only** tools: `list_workouts`, `summarize_period` and `compare_periods`. It is built on the official MCP Python SDK (v2, `MCPServer`).
 
 ## Running
 
@@ -40,12 +40,13 @@ claude mcp add openclock -- /absolute/path/to/OpenClock/.venv/bin/openclock-mcp 
 
 ## Tools
 
-Both tools take the same period arguments:
+All tools take the same period arguments:
 
 | Argument | Default | Meaning |
 |---|---|---|
 | `timezone` | `OPENCLOCK_TIMEZONE`, else UTC | IANA zone such as `America/Sao_Paulo` |
-| `reference_date` | today in `timezone` | Selects the ISO week (Monday to Sunday) containing this day |
+| `period` | `week` | `week` (ISO, Monday to Sunday) or `month` (calendar month) |
+| `reference_date` | today in `timezone` | Selects the week or month containing this day |
 | `start_date`, `end_date` | — | A custom inclusive range (`YYYY-MM-DD`). Give both, or neither. |
 
 ### `summarize_period`
@@ -78,12 +79,39 @@ Response (abridged, from the demo samples):
 }
 ```
 
+- Each totals block also has `avg_pace` (e.g. `"5:30 /km"`), `avg_pace_s_per_km`, `avg_pace_based_on_workouts` and `longest_km`. Average pace is **total time ÷ total distance** over workouts that have both, so longer runs weigh more.
 - Missing metrics are the string `"unavailable"`, never `0`.
 - `notes` lists, in plain language, everything an answer should mention: an assumed time zone, workouts missing distance or duration, sources with no files, data that ends before the period (possibly outdated export), files that failed to import, and withheld combined totals.
 
+### `compare_periods`
+
+Compares the period with the **equivalent period right before it**: the previous ISO week, the previous calendar month, or the same number of days before a custom range. Same extra arguments as `summarize_period`.
+
+Response: `current` and `previous` (each a full `summarize_period` result, with workouts and source files), plus `changes`:
+
+```json
+"changes": {
+  "by_source": {"garmin": {"...": "..."}, "apple_health": {"...": "..."}},
+  "combined": {
+    "workout_count": {"current": 2, "previous": 2, "change": 0},
+    "distance_km":   {"current": 13.44, "previous": 10.6, "change": 2.84, "change_pct": 26.8},
+    "duration":      {"current": "1:13:55", "previous": "0:59:45", "change": "+0:14:10",
+                      "change_s": 850.0, "change_pct": 23.7},
+    "avg_pace":      {"current": "5:30 /km", "previous": "5:38 /km",
+                      "change_s_per_km": -8.2, "direction": "faster"}
+  },
+  "combined_withheld_reason": null
+}
+```
+
+- A negative `change_s_per_km` means faster.
+- `change_pct` is `"unavailable"` when the previous value is 0.
+- If either period has possible duplicates under the `flag` policy, `combined` is `null` and `combined_withheld_reason` explains why. Per-source changes remain valid.
+- `notes` flags months of different lengths and an empty previous period.
+
 ### `list_workouts`
 
-The workouts in the period, each with source, `source_id`, local and UTC start, duration, distance, `unavailable_metrics` and `source_file`.
+The workouts in the period, each with source, `source_id`, local and UTC start, duration, distance, pace, `unavailable_metrics` and `source_file`.
 
 | Extra argument | Default | Meaning |
 |---|---|---|
@@ -92,7 +120,7 @@ The workouts in the period, each with source, `source_id`, local and UTC start, 
 
 ## Server instructions
 
-The server sends instructions to the assistant: use the tools as the only source of numbers; always state the period, time zone and source; mention unavailable metrics and notes; ask before combining sources when duplicates are flagged; compare equivalent periods; refer questions about pain, injury or diagnosis to a professional. See `INSTRUCTIONS` in [`src/openclock/mcp_server.py`](../src/openclock/mcp_server.py).
+The server sends instructions to the assistant: use the tools as the only source of numbers; always state the period, time zone and source; mention unavailable metrics and notes; ask before combining sources when duplicates are flagged; use `compare_periods` for changes over time, so periods are always equivalent; refer questions about pain, injury or diagnosis to a professional. See `INSTRUCTIONS` in [`src/openclock/mcp_server.py`](../src/openclock/mcp_server.py).
 
 ## Errors
 

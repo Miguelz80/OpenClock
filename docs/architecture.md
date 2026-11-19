@@ -77,6 +77,8 @@ Records are stored by `(source, source_id)`, so a second import of the same data
 
 - **Periods:** a week runs Monday 00:00 to the next Monday 00:00 (ISO 8601) **in the time zone chosen by the user**. A run at 22:00 on Sunday in São Paulo is 01:00 on Monday in UTC. Grouping by UTC would put it in the wrong week.
 - **Totals per source:** count, distance and duration, each summed only over records where the metric is available, plus the number of records missing it.
+- **Average pace:** total duration ÷ total distance over workouts that have both metrics (distance > 0). Longer runs therefore weigh more than in a mean of per-run paces, and the response says how many workouts the pace is based on.
+- **Comparisons:** a period is compared only with its equivalent predecessor: week with the previous ISO week, month with the previous calendar month, a custom range with the same number of days before it. See [ADR 0007](adr/0007-comparisons-and-pace.md).
 - **Duplicate detection:** the same run recorded by a Garmin watch and an Apple Watch, or synced from Garmin Connect into Apple Health, would be counted twice. Records from *different* sources whose time ranges overlap substantially are flagged as possible duplicates **before** any combined total is produced. See [ADR 0005](adr/0005-duplicates-and-time-zones.md).
 
 ### 4. MCP server
@@ -84,7 +86,8 @@ Records are stored by `(source, source_id)`, so a second import of the same data
 Read-only tools, documented in [docs/mcp.md](mcp.md):
 
 - `list_workouts`: workouts in a period, with source and missing metrics.
-- `summarize_period`: totals per source for a week or a custom date range, possible duplicates, and a combined total only when it is safe.
+- `summarize_period`: totals and average pace per source for a week, month or custom date range, possible duplicates, and a combined total only when it is safe.
+- `compare_periods`: changes in count, distance, duration and pace against the equivalent previous period.
 
 The assistant is instructed to use these tools as the source of every number, state the period and source, and point out missing or stale data.
 

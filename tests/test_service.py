@@ -131,3 +131,66 @@ def test_duplicate_across_devices_withholds_combined_total(tmp_path):
 def test_invalid_arguments(library, kwargs, message):
     with pytest.raises(ValueError, match=message):
         service.summarize_period(library, **kwargs)
+
+
+# --- milestone 2: comparisons ----------------------------------------------------------------
+
+
+def test_how_did_my_running_change_since_last_week(library):
+    r = service.compare_periods(library, timezone=TZ, reference_date="2026-11-18")
+    assert r["previous"]["period"]["first_day"] == "2026-11-09"
+    assert r["previous"]["period"]["last_day"] == "2026-11-15"
+    combined = r["changes"]["combined"]
+    assert combined["workout_count"] == {"current": 2, "previous": 2, "change": 0}
+    assert combined["distance_km"]["change"] == 2.84
+    assert combined["distance_km"]["change_pct"] == 26.8
+    assert combined["duration"]["change"] == "+0:14:10"
+    assert combined["avg_pace"] == {
+        "current": "5:30 /km",
+        "previous": "5:38 /km",
+        "change_s_per_km": -8.2,
+        "direction": "faster",
+    }
+    garmin = r["changes"]["by_source"]["garmin"]
+    assert (garmin["distance_km"]["previous"], garmin["distance_km"]["current"]) == (7.5, 8.42)
+    assert r["notes"] == []
+
+
+def test_pace_in_summary(library):
+    r = service.summarize_period(library, timezone=TZ, reference_date="2026-11-18")
+    assert r["by_source"]["garmin"]["avg_pace"] == "5:22 /km"
+    assert r["combined"]["avg_pace"] == "5:30 /km"
+    assert r["combined"]["longest_km"] == 8.42
+    assert r["workouts"][0]["pace"] == "5:22 /km"
+
+
+def test_month_summary_and_comparison(library):
+    month = service.summarize_period(
+        library, timezone=TZ, reference_date="2026-11-18", period_kind="month"
+    )
+    assert (month["period"]["first_day"], month["period"]["last_day"]) == (
+        "2026-11-01",
+        "2026-11-30",
+    )
+    assert month["combined"]["workout_count"] == 4  # every run in the samples
+    assert month["combined"]["distance_km"] == 24.04
+    r = service.compare_periods(
+        library, timezone=TZ, reference_date="2026-11-18", period_kind="month"
+    )
+    assert r["previous"]["period"]["first_day"] == "2026-10-01"
+    assert any("different lengths (30 vs 31 days)" in n for n in r["notes"])
+    assert any("No workouts in the previous period" in n for n in r["notes"])
+    assert r["changes"]["combined"]["distance_km"]["change_pct"] == "unavailable"
+
+
+def test_compare_custom_range(library):
+    r = service.compare_periods(
+        library, timezone=TZ, start_date="2026-11-16", end_date="2026-11-22"
+    )
+    assert r["previous"]["period"]["first_day"] == "2026-11-09"
+    assert r["previous"]["period"]["kind"] == "custom"
+
+
+def test_unknown_period_kind(library):
+    with pytest.raises(ValueError, match="Unknown period"):
+        service.summarize_period(library, timezone=TZ, period_kind="year")
