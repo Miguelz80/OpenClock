@@ -14,6 +14,7 @@ from openclock.channels.telegram import (
     PilotUser,
     TelegramAPI,
     TelegramError,
+    clean_token,
     load_config,
     main,
     split_message,
@@ -292,3 +293,41 @@ def test_preview_command(capsys):
     config = str(SAMPLES / "telegram.example.toml")
     assert main(["preview", "--config", config, "--as-of", "2026-11-20T00:00-03:00"]) == 0
     assert "13,44 km" in capsys.readouterr().out
+
+
+GOOD_TOKEN = "1234567890:" + "A" * 35
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        GOOD_TOKEN,
+        f" {GOOD_TOKEN} ",
+        f'"{GOOD_TOKEN}"',
+        f"<{GOOD_TOKEN}>",
+        GOOD_TOKEN[:20] + "\u200b" + GOOD_TOKEN[20:],  # zero-width space from copy-paste
+        GOOD_TOKEN[:20] + "\u00a0" + GOOD_TOKEN[20:],  # non-breaking space
+        GOOD_TOKEN[:20] + "\n" + GOOD_TOKEN[20:],
+        "bot" + GOOD_TOKEN,
+    ],
+)
+def test_clean_token_removes_copy_paste_noise(raw):
+    assert clean_token(raw) == GOOD_TOKEN
+
+
+@pytest.mark.parametrize("raw", ["cole-o-token-aqui", "1234567890:short", "no colon at all here"])
+def test_clean_token_rejects_malformed_tokens_without_echoing_them(raw):
+    with pytest.raises(ValueError, match="does not look like a bot token") as exc:
+        clean_token(raw)
+    assert raw not in str(exc.value)
+
+
+def test_clean_token_missing():
+    with pytest.raises(ValueError, match="missing"):
+        clean_token("")
+
+
+def test_run_with_malformed_token_fails_fast(monkeypatch, capsys):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "cole-o-token-aqui")
+    assert main(["run", "--config", str(SAMPLES / "telegram.example.toml")]) == 2
+    assert "does not look like a bot token" in capsys.readouterr().err

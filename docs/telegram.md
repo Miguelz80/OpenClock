@@ -63,7 +63,7 @@ Optional settings for free-form questions:
 openclock-telegram run --config telegram.toml
 ```
 
-The bot uses long polling, so it needs no public URL or webhook. It re-reads each data folder on every request, so new exports dropped into a folder are picked up without a restart.
+If the token is malformed, the bot stops at once with a clear error instead of retrying. It also removes the spaces, line breaks and invisible characters that copying from Telegram can add. The bot uses long polling, so it needs no public URL or webhook. It re-reads each data folder on every request, so new exports dropped into a folder are picked up without a restart.
 
 Check a report locally, without Telegram or any key:
 

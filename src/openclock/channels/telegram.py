@@ -21,6 +21,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 import tomllib
 from collections.abc import Callable
@@ -57,6 +58,7 @@ __all__ = [
 log = logging.getLogger("openclock.telegram")
 
 TOKEN_ENV = "TELEGRAM_BOT_TOKEN"
+_TOKEN_FORMAT = re.compile(r"^\d+:[A-Za-z0-9_-]{30,}$")
 API_BASE = "https://api.telegram.org"
 MAX_MESSAGE = 4000  # Telegram's limit is 4096 characters; keep a margin
 
@@ -70,6 +72,25 @@ def load_config(path: str | Path) -> list[PilotUser]:
     except tomllib.TOMLDecodeError as exc:
         raise ValueError(f"{path.name}: invalid TOML ({exc})") from exc
     return parse_users(data.get("user", []), path.name, path.parent, "chat_id", int)
+
+
+def clean_token(raw: str) -> str:
+    """Return the bot token without the spaces, line breaks, invisible characters, quotes or
+    angle brackets that copying from Telegram can add. Raises ``ValueError`` with a hint that
+    never contains the token itself if what is left is not shaped like ``123456:ABC…``."""
+    token = re.sub(r"[^0-9A-Za-z:_-]", "", raw or "")
+    if token.lower().startswith("bot") and _TOKEN_FORMAT.match(token[3:]):
+        token = token[3:]  # pasted with the "bot" prefix used in API URLs
+    if not token:
+        raise ValueError(f"Telegram bot token missing; set {TOKEN_ENV}")
+    if not _TOKEN_FORMAT.match(token):
+        raise ValueError(
+            f"{TOKEN_ENV} does not look like a bot token (expected digits, ':', then about 35 "
+            f"letters, digits, '_' or '-'; got {len(token)} characters with "
+            f"{token.count(':')} ':'). Copy it again from @BotFather: /mybots > your bot > "
+            "API Token."
+        )
+    return token
 
 
 def split_message(text: str, limit: int = MAX_MESSAGE) -> list[str]:
@@ -248,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
             bot = Bot(api=None, users=users, now=now)  # type: ignore[arg-type]
             print(bot.report(user, args.kind))
             return 0
-        api = TelegramAPI(os.environ.get(TOKEN_ENV, ""))
+        api = TelegramAPI(clean_token(os.environ.get(TOKEN_ENV, "")))
         if args.command == "send-weekly":
             sent = asyncio.run(Bot(api, users).send_weekly_reports(not args.current_week))
             print(f"sent {sent} weekly report(s)")
