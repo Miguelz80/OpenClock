@@ -54,7 +54,7 @@ weekly-distance: Run 20 km per week (target 20.00 km per week, running, combined
 ...
 ```
 
-Every number can be traced to a field in [`samples/`](samples/). The [demo guide](docs/demo.md) shows how to check each one by hand.
+Every number can be traced to a field in [`samples/`](samples/). The [demo guide](docs/demo.md) shows how to check each one by hand. To use your own exports, see [docs/your-data.md](docs/your-data.md).
 
 ## Two ways to use it
 
@@ -109,7 +109,7 @@ See [docs/architecture.md](docs/architecture.md) for the full system design and 
 
 | Source | How OpenClock reads it today | Notes |
 |---|---|---|
-| Garmin | `.fit` activity files exported from Garmin Connect (decoded with Garmin's official FIT SDK) | Official API access requires approval and may be paused for new applicants; to be verified. |
+| Garmin | `.fit` files or Garmin Connect `.zip` downloads, including the full account export (decoded with Garmin's official FIT SDK) | Official API access requires approval and may be paused for new applicants; to be verified. |
 | Apple Watch | `export.xml` or `export.zip` from the Health app ("Export All Health Data") | Apple Health has no cloud API; data stays on the iPhone. |
 | Strava | Not used | Strava's API agreement prohibits using API data in AI models. See [ADR 0004](docs/adr/0004-data-sources.md). |
 

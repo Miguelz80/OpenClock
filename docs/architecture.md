@@ -49,7 +49,7 @@ flowchart TB
 
 Each importer reads one file format and returns a list of `Workout` records. Importers do not compute totals and know nothing about MCP.
 
-- **Garmin FIT:** decoded with Garmin's official [FIT Python SDK](https://pypi.org/project/garmin-fit-sdk/). One record per `session` message.
+- **Garmin FIT:** decoded with Garmin's official [FIT Python SDK](https://pypi.org/project/garmin-fit-sdk/). One record per `session` message. Garmin Connect `.zip` downloads, including the account export with zips inside a zip, are opened in memory with size limits. A `.zip` is treated as an Apple Health export only if it contains `export.xml`.
 - **Apple Health XML:** streamed with `iterparse` (real exports can be hundreds of megabytes) through `defusedxml` to block XML entity attacks. One record per `<Workout>` element. Both the legacy attribute format (`totalDistance`) and the newer `<WorkoutStatistics>` child format are supported.
 
 ### 2. Normalized record

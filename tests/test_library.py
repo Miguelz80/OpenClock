@@ -80,3 +80,23 @@ def test_bad_files_are_reported_not_fatal(data_dir):
 def test_missing_directory(tmp_path):
     with pytest.raises(FileNotFoundError):
         Library(tmp_path / "nope").refresh()
+
+
+def test_garmin_and_apple_zips_are_told_apart(tmp_path):
+    import zipfile
+
+    with zipfile.ZipFile(tmp_path / "garmin_download.zip", "w") as z:
+        z.write(SAMPLES / GARMIN_DEMO_FILE, "987_ACTIVITY.fit")
+    with zipfile.ZipFile(tmp_path / "export.zip", "w") as z:
+        z.write(SAMPLES / APPLE_DEMO_FILE, "apple_health_export/export.xml")
+    shutil.copy(SAMPLES / GARMIN_DEMO_FILE, tmp_path / "loose.fit")  # same activity, unzipped
+    library = Library(tmp_path)
+    library.refresh()
+    by_file = {f.path.name: f.source.value for f in library.files}
+    assert by_file == {
+        "garmin_download.zip": "garmin",
+        "export.zip": "apple_health",
+        "loose.fit": "garmin",
+    }
+    assert all(f.error is None for f in library.files)
+    assert len(library.workouts()) == 4  # the zipped and loose copies count once

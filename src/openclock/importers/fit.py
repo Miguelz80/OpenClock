@@ -12,6 +12,8 @@ One ``Workout`` is produced per ``session`` message:
 from __future__ import annotations
 
 import hashlib
+import io
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -91,3 +93,60 @@ def parse_fit_bytes(data: bytes, source_file: str) -> ImportResult:
 def import_fit(path: str | Path) -> ImportResult:
     path = Path(path)
     return parse_fit_bytes(path.read_bytes(), source_file=path.name)
+
+
+#: Largest single member read from an archive (FIT activity files are kilobytes to a few MB).
+MAX_MEMBER_BYTES = 50 * 1024 * 1024
+#: Most members read from one archive, nested archives included.
+MAX_MEMBERS = 20_000
+
+
+def _fit_members(archive: zipfile.ZipFile, label: str, result: ImportResult, depth: int) -> int:
+    """Import every .fit in ``archive`` (and, one level down, in nested .zip files)."""
+    found = 0
+    for info in archive.infolist():
+        if info.is_dir():
+            continue
+        name = info.filename.lower()
+        if not (name.endswith(".fit") or (name.endswith(".zip") and depth == 0)):
+            continue
+        member = f"{label}/{info.filename}"
+        if info.file_size > MAX_MEMBER_BYTES:
+            result.warnings.append(f"{member}: larger than {MAX_MEMBER_BYTES // 2**20} MB; skipped")
+            continue
+        if found >= MAX_MEMBERS:
+            result.warnings.append(f"{label}: more than {MAX_MEMBERS} files; the rest skipped")
+            break
+        data = archive.read(info)
+        if name.endswith(".zip"):
+            try:
+                with zipfile.ZipFile(io.BytesIO(data)) as nested:
+                    found += _fit_members(nested, member, result, depth + 1)
+            except zipfile.BadZipFile:
+                result.warnings.append(f"{member}: not a valid zip; skipped")
+            continue
+        found += 1
+        try:
+            part = parse_fit_bytes(data, source_file=member)
+        except FileImportError as exc:
+            result.warnings.append(str(exc))
+            continue
+        result.workouts.extend(part.workouts)
+        result.warnings.extend(part.warnings)
+    return found
+
+
+def import_fit_archive(path: str | Path) -> ImportResult:
+    """Import a Garmin Connect download that holds .fit files: an activity's "Export
+    original" zip, or the account data export (zips inside a zip). Bad members become
+    warnings; the archive fails only if it holds no .fit file at all."""
+    path = Path(path)
+    result = ImportResult()
+    try:
+        with zipfile.ZipFile(path) as archive:
+            found = _fit_members(archive, path.name, result, depth=0)
+    except zipfile.BadZipFile as exc:
+        raise FileImportError(f"{path.name}: not a valid zip file") from exc
+    if not found:
+        raise FileImportError(f"{path.name}: no .fit files inside the archive")
+    return result

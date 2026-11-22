@@ -280,3 +280,51 @@ def test_no_goals_note(tmp_path):
 def test_goal_progress_invalid_arguments(library, kwargs, message):
     with pytest.raises(ValueError, match=message):
         service.goal_progress(library, timezone=TZ, **kwargs)
+
+
+# --- data folder check -----------------------------------------------------------------------
+
+
+def test_check_data_on_samples(library):
+    r = service.check_data(library, timezone=TZ)
+    assert r["sources"]["garmin"] == {
+        "files": 2,
+        "workouts": 2,
+        "by_sport": {"running": 2},
+        "first_day": "2026-11-10",
+        "last_day": "2026-11-17",
+        "missing_distance": 0,
+        "missing_duration": 0,
+    }
+    assert r["sources"]["apple_health"]["by_sport"] == {"running": 2, "walking": 1}
+    assert r["possible_duplicates"] == [] and r["problems"] == []
+    assert r["goals"]["goals"] == [
+        "weekly-distance",
+        "weekly-runs",
+        "weekly-pace",
+        "monthly-long-run",
+    ]
+
+
+def test_check_data_reports_duplicates_problems_and_bad_goals(tmp_path):
+    shutil.copy(SAMPLES / "garmin_run_2026-11-17.fit", tmp_path)
+    same_run = AppleWorkout(
+        start=datetime.fromisoformat("2026-11-17T06:30:20-03:00"),
+        end=datetime.fromisoformat("2026-11-17T07:15:30-03:00"),
+        duration=44.9,
+        distance=8.39,
+    )
+    (tmp_path / "export.xml").write_text(apple_health_xml([same_run]))
+    (tmp_path / "broken.fit").write_bytes(b"nope")
+    (tmp_path / "goals.toml").write_text('[[goal]]\nmetric = "speed"\ntarget = 1\n')
+    r = service.check_data(Library(tmp_path), timezone=TZ)
+    assert len(r["possible_duplicates"]) == 1
+    assert r["problems"][0]["file"] == "broken.fit"
+    assert "unknown metric" in r["goals"]["error"]
+    assert any("possible duplicate" in n for n in r["notes"])
+
+
+def test_check_data_on_empty_folder(tmp_path):
+    r = service.check_data(Library(tmp_path), timezone=TZ)
+    assert r["files"] == 0
+    assert any("No workouts found" in n for n in r["notes"])

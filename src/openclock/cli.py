@@ -157,6 +157,55 @@ def format_goals(result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def format_check(result: dict[str, Any]) -> str:
+    lines = [
+        f"Data folder: {result['data_dir']} ({result['files']} file(s), {result['timezone']})",
+        "",
+    ]
+    for name, src in result["sources"].items():
+        if not src["workouts"]:
+            lines.append(f"  {name:<13} no workouts ({src['files']} file(s))")
+            continue
+        sports = ", ".join(f"{k} {v}" for k, v in src["by_sport"].items())
+        lines.append(
+            f"  {name:<13} {src['workouts']} workout(s) from {src['files']} file(s), "
+            f"{src['first_day']} to {src['last_day']} ({sports})"
+        )
+        missing = [
+            f"{src[k]} without {k.split('_')[1]}"
+            for k in ("missing_distance", "missing_duration")
+            if src[k]
+        ]
+        if missing:
+            lines.append(f"  {'':<13} " + ", ".join(missing))
+    if result["possible_duplicates"]:
+        lines += ["", "Possible duplicates across devices:"]
+        for d in result["possible_duplicates"][:10]:
+            lines.append(f"  {d['start_local']}  {d['files'][0]} <-> {d['files'][1]}")
+        if len(result["possible_duplicates"]) > 10:
+            lines.append(f"  ... and {len(result['possible_duplicates']) - 10} more")
+    if result["problems"]:
+        lines += ["", "Files with problems:"]
+        for p in result["problems"]:
+            for message in ([p["error"]] if p["error"] else []) + p["warnings"]:
+                lines.append(f"  - {message}")
+    goals = result["goals"]
+    lines += [
+        "",
+        "Goals: "
+        + (
+            f"invalid {goals['file']}: {goals['error']}"
+            if goals["error"]
+            else (
+                f"{', '.join(goals['goals'])} (from {goals['file']})" if goals["goals"] else "none"
+            )
+        ),
+    ]
+    if result["notes"]:
+        lines += ["", "Notes:"] + [f"  - {n}" for n in result["notes"]]
+    return "\n".join(lines)
+
+
 def format_list(result: dict[str, Any]) -> str:
     lines = [_period_line(result), ""]
     lines += _workout_lines(result["workouts"]) or ["  none"]
@@ -221,6 +270,11 @@ def main(argv: list[str] | None = None) -> int:
     listing.add_argument("--sport", default="all")
     listing.add_argument("--source", choices=["garmin", "apple_health"])
 
+    check = sub.add_parser("check", help="Check a data folder before using it")
+    check.add_argument("--data-dir", default=os.environ.get("OPENCLOCK_DATA_DIR", "samples"))
+    check.add_argument("--timezone", help="IANA time zone, e.g. America/Sao_Paulo")
+    check.add_argument("--json", action="store_true", help="Print the raw JSON")
+
     samples = sub.add_parser("samples", help="(Re)generate the synthetic sample files")
     samples.add_argument("directory", nargs="?", default="samples")
 
@@ -231,6 +285,14 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"wrote {path}")
             return 0
         library = Library(args.data_dir)
+        if args.command == "check":
+            result = service.check_data(library, args.timezone)
+            print(
+                json.dumps(result, indent=2, ensure_ascii=False)
+                if args.json
+                else format_check(result)
+            )
+            return 0
         if args.command == "goals":
             result = service.goal_progress(
                 library,
