@@ -30,12 +30,12 @@ Mode A runs OpenClock on your computer and plugs it into an AI app you already u
    python -m pip install -e .
    ```
 
-2. **Put your exports in a folder**, e.g. `~/openclock-data`: `.fit` files from Garmin Connect, and `export.xml` or `export.zip` from the Health app. You can add a `goals.toml` (see [`samples/goals.toml`](../samples/goals.toml)). To try it first, use the `samples/` folder.
+2. **Put your exports in a folder** outside the repository, e.g. `~/openclock-data`: Garmin `.fit` files or Garmin Connect `.zip` downloads, and `export.zip` from the Health app. You can add a `goals.toml`. To try it first, use the `samples/` folder. See [docs/your-data.md](your-data.md) for how to export.
 
 3. **Check that it works**:
 
    ```bash
-   openclock summary --data-dir ~/openclock-data --timezone America/Sao_Paulo
+   openclock check --data-dir ~/openclock-data --timezone America/Sao_Paulo
    ```
 
 4. **Connect your AI app** (use absolute paths):

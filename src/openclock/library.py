@@ -6,6 +6,7 @@ call ``refresh()`` before every request and still pick up new exports dropped in
 
 from __future__ import annotations
 
+import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -13,7 +14,7 @@ from pathlib import Path
 
 from openclock.importers import FileImportError, ImportResult
 from openclock.importers.apple_health import import_apple_health
-from openclock.importers.fit import import_fit
+from openclock.importers.fit import import_fit, import_fit_archive
 from openclock.models import Source, Workout
 from openclock.store import WorkoutStore
 
@@ -22,8 +23,21 @@ Importer = Callable[[Path], ImportResult]
 IMPORTERS: dict[str, tuple[Source, Importer]] = {
     ".fit": (Source.GARMIN, import_fit),
     ".xml": (Source.APPLE_HEALTH, import_apple_health),
-    ".zip": (Source.APPLE_HEALTH, import_apple_health),
+    ".zip": (Source.APPLE_HEALTH, import_apple_health),  # refined by _importer_for()
 }
+
+
+def _importer_for(path: Path) -> tuple[Source, Importer]:
+    """A .zip is an Apple Health export if it holds export.xml, otherwise a Garmin download."""
+    if path.suffix.lower() == ".zip":
+        try:
+            with zipfile.ZipFile(path) as archive:
+                names = archive.namelist()
+        except (zipfile.BadZipFile, OSError):
+            return IMPORTERS[".zip"]
+        if not any(n == "export.xml" or n.endswith("/export.xml") for n in names):
+            return Source.GARMIN, import_fit_archive
+    return IMPORTERS[path.suffix.lower()]
 
 
 @dataclass(slots=True)
@@ -55,7 +69,7 @@ class Library:
         )
 
     def _load(self, path: Path) -> FileStatus:
-        source, importer = IMPORTERS[path.suffix.lower()]
+        source, importer = _importer_for(path)
         stat = path.stat()
         status = FileStatus(path, source, datetime.fromtimestamp(stat.st_mtime, UTC))
         try:

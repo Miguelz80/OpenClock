@@ -64,3 +64,10 @@ def test_goals_command(capsys):
     assert "remaining 6.56 km in 3 day(s)" in out
     assert main([*args, "--as-of", "2026-11-19", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["goals_from"] == "goals.toml"
+
+
+def test_check_command(capsys):
+    assert main(["check", "--data-dir", SAMPLES, "--timezone", "America/Sao_Paulo"]) == 0
+    out = capsys.readouterr().out
+    assert "garmin        2 workout(s) from 2 file(s), 2026-11-10 to 2026-11-17" in out
+    assert "Goals: weekly-distance" in out

@@ -113,3 +113,74 @@ def test_corrupted_file_is_rejected():
 def test_non_fit_file_is_rejected():
     with pytest.raises(FileImportError, match="not a FIT file"):
         parse_fit_bytes(b"<xml/>", "wrong.fit")
+
+
+# --- Garmin Connect zip downloads ------------------------------------------------------------
+
+import io  # noqa: E402
+import zipfile  # noqa: E402
+
+from openclock.importers import fit as fit_module  # noqa: E402
+from openclock.importers.fit import import_fit_archive  # noqa: E402
+
+
+def _zip(path, members):
+    with zipfile.ZipFile(path, "w") as z:
+        for name, data in members.items():
+            z.writestr(name, data)
+    return path
+
+
+def test_export_original_zip_with_one_fit(tmp_path):
+    archive = _zip(
+        tmp_path / "123456789.zip",
+        {"123456789_ACTIVITY.fit": (SAMPLES / GARMIN_DEMO_FILE).read_bytes()},
+    )
+    (w,) = import_fit_archive(archive).workouts
+    assert w.distance_m == 8420.0
+    assert w.source_file == "123456789.zip/123456789_ACTIVITY.fit"
+    # Same id as the loose file, so both can sit in one folder without double counting.
+    assert w.source_id == import_fit(SAMPLES / GARMIN_DEMO_FILE).workouts[0].source_id
+
+
+def test_account_export_with_nested_zips(tmp_path):
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as z:
+        z.writestr("a.fit", (SAMPLES / GARMIN_DEMO_FILE).read_bytes())
+        z.writestr("b.FIT", (SAMPLES / "garmin_run_2026-11-10.fit").read_bytes())
+        z.writestr("notes.txt", "ignored")
+    archive = _zip(
+        tmp_path / "account_export.zip",
+        {"DI_CONNECT/DI-Connect-Uploaded-Files/UploadedFiles_0-_Part1.zip": inner.getvalue()},
+    )
+    result = import_fit_archive(archive)
+    assert sorted(w.distance_m for w in result.workouts) == [7500.0, 8420.0]
+    assert result.warnings == []
+
+
+def test_bad_members_become_warnings(tmp_path, monkeypatch):
+    monkeypatch.setattr(fit_module, "MAX_MEMBER_BYTES", 1000)
+    archive = _zip(
+        tmp_path / "mixed.zip",
+        {
+            "good.fit": (SAMPLES / GARMIN_DEMO_FILE).read_bytes(),
+            "broken.fit": b"not fit",
+            "huge.fit": b"x" * 2000,
+        },
+    )
+    result = import_fit_archive(archive)
+    assert len(result.workouts) == 1
+    assert any("broken.fit: not a FIT file" in w for w in result.warnings)
+    assert any("huge.fit: larger than" in w for w in result.warnings)
+
+
+def test_zip_without_fit_is_rejected(tmp_path):
+    with pytest.raises(FileImportError, match="no .fit files"):
+        import_fit_archive(_zip(tmp_path / "x.zip", {"readme.txt": "hi"}))
+
+
+def test_not_a_zip_is_rejected(tmp_path):
+    bad = tmp_path / "bad.zip"
+    bad.write_bytes(b"not a zip")
+    with pytest.raises(FileImportError, match="not a valid zip"):
+        import_fit_archive(bad)

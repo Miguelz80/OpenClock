@@ -343,3 +343,71 @@ def goal_progress(
         "data_status": status,
         "notes": notes + data_notes,
     }
+
+
+# --- data folder check -----------------------------------------------------------------------
+
+
+def check_data(library: Library, timezone: str | None = None) -> dict[str, Any]:
+    """An overview of a data folder: what was imported per source, the covered dates, files
+    that failed, possible duplicates across devices and whether the goals file is valid."""
+    from openclock.metrics import find_possible_duplicates
+
+    tz_name, notes = choose_timezone(timezone)
+    tz = resolve_timezone(tz_name)
+    library.refresh()
+    workouts = library.workouts()
+    sources: dict[str, Any] = {}
+    for source in Source:
+        mine = [w for w in workouts if w.source == source]
+        sports: dict[str, int] = {}
+        for w in mine:
+            sports[w.sport.value] = sports.get(w.sport.value, 0) + 1
+        sources[source.value] = {
+            "files": sum(1 for f in library.files if f.source == source),
+            "workouts": len(mine),
+            "by_sport": dict(sorted(sports.items())),
+            "first_day": min(w.start for w in mine).astimezone(tz).date().isoformat()
+            if mine
+            else None,
+            "last_day": max(w.start for w in mine).astimezone(tz).date().isoformat()
+            if mine
+            else None,
+            "missing_distance": sum(1 for w in mine if w.distance_m is None),
+            "missing_duration": sum(1 for w in mine if w.duration_s is None),
+        }
+    duplicates = find_possible_duplicates(workouts)
+    problems = [
+        {"file": f.path.name, "error": f.error, "warnings": f.warnings}
+        for f in library.files
+        if f.error or f.warnings
+    ]
+    try:
+        goals, origin = resolve_goals(library)
+        goals_status = {"file": origin, "goals": [g.id for g in goals], "error": None}
+    except ValueError as exc:
+        goals_status = {"file": GOALS_FILE, "goals": [], "error": str(exc)}
+    if not workouts:
+        notes.append("No workouts found. Put .fit, Garmin .zip or Apple Health export files here.")
+    if duplicates:
+        notes.append(
+            f"{len(duplicates)} possible duplicate(s) across devices. Combined totals will be "
+            "withheld until a duplicate policy is chosen."
+        )
+    return {
+        "data_dir": str(library.data_dir),
+        "timezone": tz_name,
+        "files": len(library.files),
+        "sources": sources,
+        "possible_duplicates": [
+            {
+                "start_local": p.first.start.astimezone(tz).isoformat(timespec="minutes"),
+                "files": [p.first.source_file, p.second.source_file],
+                "reason": p.reason,
+            }
+            for p in duplicates
+        ],
+        "problems": problems,
+        "goals": goals_status,
+        "notes": notes,
+    }
